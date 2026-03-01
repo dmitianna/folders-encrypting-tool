@@ -1,18 +1,40 @@
 #include <QCoreApplication>
+#include <QDebug>
+#include "filecrawler.h"
+
 int main(int argc, char *argv[])
 {
-    QCoreApplication a(argc, argv);
+    QCoreApplication app(argc, argv);
 
-    // Set up code that uses the Qt event loop here.
-    // Call a.quit() or a.exit() to quit the application.
-    // A not very useful example would be including
-    // #include <QTimer>
-    // near the top of the file and calling
-    // QTimer::singleShot(5000, &a, &QCoreApplication::quit);
-    // which quits the application after 5 seconds.
+    qDebug() << "=== FILECRAWLER ===\n";
 
-    // If you do not need a running Qt event loop, remove the call
-    // to a.exec() or use the Non-Qt Plain C++ Application template.
+    // Путь для теста
+    QString testPath = "testpath";
+    if (argc > 1) {
+        testPath = argv[1];
+    }
 
-    return 1;
+    qDebug() << "Scanning:" << testPath << "\n";
+
+    // Создаем и запускаем
+    FileCrawler crawler;
+    FileCrawler::ScanResult result = crawler.scanFolder(testPath);
+
+    // Проверяем ошибки
+    if (!result.success)
+    {
+        qDebug() << "ERROR:" << result.errorMessage;
+        return 1;
+    }
+
+    // ПРОСТО ВЫВОДИМ СПИСОК
+    qDebug() << "Found:" << result.items.size() << "\n";
+
+    for (const auto &item : qAsConst(result.items)) {
+        QString type = item.isDir ? "[DIR] " : "[FILE]";
+        QString hidden = item.isHidden ? " (hidden)" : "";
+        qDebug() << type + item.relativePath + hidden;
+    }
+
+    return 0;
 }
