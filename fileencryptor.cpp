@@ -99,6 +99,17 @@ FileResult FileEncryptor::encryptFile(const QString &filePath, const QString &pa
         return result;
     }
 
+    QFileInfo dirInfo(fileInfo.absolutePath());
+    if (!dirInfo.isWritable()) {
+        result.errorMessage = "Target directory is not writable: " + fileInfo.absolutePath();
+        return result;
+    }
+
+    if (!fileInfo.isWritable()) {
+        result.errorMessage = "File is not writable: " + filePath;
+        return result;
+    }
+
     if (hasEncryptionSignature(filePath)) {
         result.skipped = true;
         result.errorMessage = "File is already encrypted.";
