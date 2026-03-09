@@ -1,16 +1,14 @@
 #ifndef FILECRAWLER_H
 #define FILECRAWLER_H
 
-#include <QObject>
 #include <QDir>
 #include <QFileInfo>
 #include <QDirIterator>
 #include <QList>
+#include <QString>
 
-class FileCrawler : public QObject
+class FileCrawler
 {
-    Q_OBJECT
-
 public:
     struct FileItem
     {
@@ -18,25 +16,22 @@ public:
         QString fileName;
         QString relativePath;
         qint64 size = 0;
-        bool isDir = false;
         bool isHidden = false;
     };
 
     struct ScanResult
     {
-        bool success;
+        bool success = false;
         QString errorMessage;
         QList<FileItem> items;
     };
 
-    explicit FileCrawler(QObject *parent = nullptr);
+    FileCrawler();
 
     ScanResult scanFolder(const QString &path);
 
 private:
     QString m_rootPath;
-
-    void collectItems(const QString &path, QList<FileItem> &items);
 };
 
 #endif // FILECRAWLER_H
