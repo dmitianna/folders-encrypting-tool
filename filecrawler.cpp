@@ -1,6 +1,6 @@
 #include "filecrawler.h"
 
-FileCrawler::FileCrawler(QObject *parent) : QObject(parent)
+FileCrawler::FileCrawler()
 {
 }
 
@@ -28,19 +28,22 @@ FileCrawler::ScanResult FileCrawler::scanFolder(const QString &path)
     m_rootPath = QDir(path).absolutePath();
 
     QDirIterator it(path,
-                    QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden,
+                    QDir::Files | QDir::NoDotAndDotDot | QDir::Hidden,
                     QDirIterator::Subdirectories);
 
     while (it.hasNext()) {
         it.next();
         QFileInfo entry = it.fileInfo();
 
+        if (entry.isSymLink())
+        {
+            continue;
+        }
         FileItem item;
         item.filePath = entry.absoluteFilePath();
         item.fileName = entry.fileName();
         item.relativePath = QDir(m_rootPath).relativeFilePath(entry.absoluteFilePath());
         item.size = entry.size();
-        item.isDir = entry.isDir();
         item.isHidden = entry.isHidden();
 
         result.items.append(item);
