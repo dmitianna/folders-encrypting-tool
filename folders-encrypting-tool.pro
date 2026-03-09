@@ -1,4 +1,4 @@
-QT = core
+QT += core
 
 CONFIG += c++17 cmdline
 
@@ -22,20 +22,10 @@ HEADERS += \
     cryptomanager.h \
     filecrawler.h \
     filedecryptor.h \
-    fileencryptor.h
+    fileencryptor.h \
+    fileresult.h
 
-INCLUDEPATH += C:/CryptoCC/include
+INCLUDEPATH += $$PWD/third_party/cryptopp/include
+LIBS += -L$$PWD/third_party/cryptopp/lib -lcryptopp
 
-CONFIG(debug, debug|release) {
-    # Debug версия
-    LIBS += -LC:/CryptoCC/lib/debug
-    LIBS += -LC:/CryptoCC/x64/Output/Debug
-} else {
-    # Release версия
-    LIBS += -LC:/CryptoCC/lib/release
-    LIBS += -LC:/CryptoCC/x64/Output/Release
-}
-LIBS += -lcryptlib
-
-# Windows-specific библиотеки
 win32: LIBS += -lws2_32 -lgdi32 -lcrypt32
