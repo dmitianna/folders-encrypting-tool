@@ -5,7 +5,7 @@
 
 #include <files.h>
 #include <filters.h>
-#include <modes.h>
+#include <gcm.h>
 #include <osrng.h>
 
 using namespace CryptoPP;
