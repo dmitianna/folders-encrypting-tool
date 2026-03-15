@@ -5,7 +5,7 @@
 
 #include <files.h>
 #include <filters.h>
-#include <modes.h>
+#include <gcm.h>
 
 using namespace CryptoPP;
 
@@ -82,11 +82,6 @@ FileResult FileDecryptor::decryptFile(const QString &filePath, const QString &pa
         return result;
     }
 
-    if (!fileInfo.isReadable()) {
-        result.errorMessage = "File is not readable: " + filePath;
-        return result;
-    }
-
     QFileInfo dirInfo(fileInfo.absolutePath());
     if (!dirInfo.isWritable()) {
         result.errorMessage = "Target directory is not writable: " + fileInfo.absolutePath();
@@ -115,8 +110,8 @@ FileResult FileDecryptor::decryptFile(const QString &filePath, const QString &pa
             return result;
         }
 
-        const int headerSize = ENCRYPTION_SIGNATURE.size() + SALT_SIZE + IV_SIZE;
-        if (inputFile.size() < headerSize) {
+        const qint64 minSize = ENCRYPTION_SIGNATURE.size() + SALT_SIZE + IV_SIZE + TAG_SIZE;
+        if (inputFile.size() < minSize) {
             inputFile.close();
             result.errorMessage = "Invalid encrypted file format.";
             return result;
@@ -143,26 +138,32 @@ FileResult FileDecryptor::decryptFile(const QString &filePath, const QString &pa
             return result;
         }
 
-        const QByteArray cipherData = inputFile.readAll();
+        const QByteArray encryptedData = inputFile.readAll(); // ciphertext + tag
         inputFile.close();
+
+        if (encryptedData.size() < TAG_SIZE) {
+            result.errorMessage = "Encrypted payload is too small.";
+            return result;
+        }
 
         SecByteBlock salt(reinterpret_cast<const byte*>(saltBytes.constData()), SALT_SIZE);
         SecByteBlock iv(reinterpret_cast<const byte*>(ivBytes.constData()), IV_SIZE);
         SecByteBlock key = deriveKey(password, salt, AES::MAX_KEYLENGTH);
 
-        CBC_Mode<AES>::Decryption decryption;
+        GCM<AES>::Decryption decryption;
         decryption.SetKeyWithIV(key, key.size(), iv, iv.size());
 
         std::string plainText;
-        StringSource(
-            reinterpret_cast<const byte*>(cipherData.constData()),
-            static_cast<size_t>(cipherData.size()),
-            true,
-            new StreamTransformationFilter(
-                decryption,
-                new StringSink(plainText)
-                )
+        AuthenticatedDecryptionFilter adf(
+            decryption,
+            new StringSink(plainText),
+            AuthenticatedDecryptionFilter::THROW_EXCEPTION,
+            TAG_SIZE
             );
+
+        adf.Put(reinterpret_cast<const byte*>(encryptedData.constData()),
+                static_cast<size_t>(encryptedData.size()));
+        adf.MessageEnd();
 
         QFile tempFile(tempPath);
         if (!tempFile.open(QIODevice::WriteOnly)) {
@@ -171,7 +172,8 @@ FileResult FileDecryptor::decryptFile(const QString &filePath, const QString &pa
         }
 
         if (!plainText.empty()) {
-            const qint64 written = tempFile.write(plainText.data(), static_cast<qint64>(plainText.size()));
+            const qint64 written = tempFile.write(plainText.data(),
+                                                  static_cast<qint64>(plainText.size()));
             if (written != static_cast<qint64>(plainText.size())) {
                 tempFile.close();
                 QFile::remove(tempPath);
@@ -203,6 +205,11 @@ FileResult FileDecryptor::decryptFile(const QString &filePath, const QString &pa
 
         result.success = true;
         result.bytesProcessed = plainText.size();
+        return result;
+    }
+    catch (const HashVerificationFilter::HashVerificationFailed &) {
+        QFile::remove(tempPath);
+        result.errorMessage = "Invalid password or corrupted encrypted file.";
         return result;
     }
     catch (const Exception &e) {
