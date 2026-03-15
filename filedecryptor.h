@@ -7,7 +7,7 @@
 
 #include <cryptlib.h>
 #include <aes.h>
-#include <modes.h>
+#include <gcm.h>
 #include <filters.h>
 #include <osrng.h>
 #include <sha.h>
@@ -25,7 +25,8 @@ public:
 private:
     static const QByteArray ENCRYPTION_SIGNATURE;
     static const int SALT_SIZE = 16;
-    static const int IV_SIZE = CryptoPP::AES::BLOCKSIZE;
+    static const int IV_SIZE = 12;
+    static const int TAG_SIZE = 16;
 
     CryptoPP::SecByteBlock deriveKey(const QString &password,
                                      const CryptoPP::SecByteBlock &salt,
