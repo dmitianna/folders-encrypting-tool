@@ -35,7 +35,6 @@ private:
                                      size_t keySize = CryptoPP::AES::MAX_KEYLENGTH);
 
     bool hasEncryptionSignature(const QString &filePath);
-    QString makeTempFilePath(const QString &filePath) const;
 };
 
 #endif // FILEENCRYPTOR_H

@@ -2,7 +2,7 @@
 
 #include <QFile>
 #include <QFileInfo>
-
+#include <QSaveFile>
 #include <files.h>
 #include <filters.h>
 #include <gcm.h>
@@ -69,10 +69,6 @@ bool FileEncryptor::hasEncryptionSignature(const QString &filePath)
     return signature == ENCRYPTION_SIGNATURE;
 }
 
-QString FileEncryptor::makeTempFilePath(const QString &filePath) const
-{
-    return filePath + ".tmp_enc";
-}
 
 FileResult FileEncryptor::encryptFile(const QString &filePath, const QString &password)
 {
@@ -116,15 +112,6 @@ FileResult FileEncryptor::encryptFile(const QString &filePath, const QString &pa
         return result;
     }
 
-    const QString tempPath = makeTempFilePath(filePath);
-
-    if (QFile::exists(tempPath)) {
-        if (!QFile::remove(tempPath)) {
-            result.errorMessage = "Temporary file already exists and cannot be removed: " + tempPath;
-            return result;
-        }
-    }
-
     try {
         QFile inputFile(filePath);
         if (!inputFile.open(QIODevice::ReadOnly)) {
@@ -142,7 +129,7 @@ FileResult FileEncryptor::encryptFile(const QString &filePath, const QString &pa
         GCM<AES>::Encryption encryption;
         encryption.SetKeyWithIV(key, key.size(), iv, iv.size());
 
-        std::string encryptedData; // ciphertext + tag
+        std::string encryptedData;
         AuthenticatedEncryptionFilter aef(
             encryption,
             new StringSink(encryptedData),
@@ -156,63 +143,42 @@ FileResult FileEncryptor::encryptFile(const QString &filePath, const QString &pa
         }
         aef.MessageEnd();
 
-
-        QFile tempFile(tempPath);
-        if (!tempFile.open(QIODevice::WriteOnly)) {
-            result.errorMessage = "Failed to create temporary file: " + tempPath;
+        QSaveFile outputFile(filePath);
+        if (!outputFile.open(QIODevice::WriteOnly)) {
+            result.errorMessage = "Failed to open output file for write: " + filePath;
             return result;
         }
 
-        if (tempFile.write(ENCRYPTION_SIGNATURE) != ENCRYPTION_SIGNATURE.size()) {
-            tempFile.close();
-            QFile::remove(tempPath);
+        if (outputFile.write(ENCRYPTION_SIGNATURE) != ENCRYPTION_SIGNATURE.size()) {
+            outputFile.cancelWriting();
             result.errorMessage = "Failed to write file signature.";
             return result;
         }
 
-        if (tempFile.write(reinterpret_cast<const char*>(salt.data()), SALT_SIZE) != SALT_SIZE) {
-            tempFile.close();
-            QFile::remove(tempPath);
+        if (outputFile.write(reinterpret_cast<const char*>(salt.data()), SALT_SIZE) != SALT_SIZE) {
+            outputFile.cancelWriting();
             result.errorMessage = "Failed to write salt.";
             return result;
         }
 
-        if (tempFile.write(reinterpret_cast<const char*>(iv.data()), IV_SIZE) != IV_SIZE) {
-            tempFile.close();
-            QFile::remove(tempPath);
+        if (outputFile.write(reinterpret_cast<const char*>(iv.data()), IV_SIZE) != IV_SIZE) {
+            outputFile.cancelWriting();
             result.errorMessage = "Failed to write IV.";
             return result;
         }
 
         if (!encryptedData.empty()) {
-            const qint64 written = tempFile.write(encryptedData.data(),
-                                                  static_cast<qint64>(encryptedData.size()));
+            const qint64 written = outputFile.write(encryptedData.data(),
+                                                    static_cast<qint64>(encryptedData.size()));
             if (written != static_cast<qint64>(encryptedData.size())) {
-                tempFile.close();
-                QFile::remove(tempPath);
+                outputFile.cancelWriting();
                 result.errorMessage = "Failed to write encrypted data.";
                 return result;
             }
         }
 
-        tempFile.close();
-
-        QFileInfo tempInfo(tempPath);
-        if (!tempInfo.exists() || tempInfo.size() <= 0) {
-            QFile::remove(tempPath);
-            result.errorMessage = "Temporary encrypted file was not created correctly.";
-            return result;
-        }
-
-        if (!QFile::remove(filePath)) {
-            QFile::remove(tempPath);
-            result.errorMessage = "Failed to remove original file.";
-            return result;
-        }
-
-        QFile renamedFile(tempPath);
-        if (!renamedFile.rename(filePath)) {
-            result.errorMessage = "Failed to replace original file with encrypted file.";
+        if (!outputFile.commit()) {
+            result.errorMessage = "Failed to replace original file.";
             return result;
         }
 
@@ -221,12 +187,10 @@ FileResult FileEncryptor::encryptFile(const QString &filePath, const QString &pa
         return result;
     }
     catch (const Exception &e) {
-        QFile::remove(tempPath);
         result.errorMessage = "Crypto++ error: " + QString::fromStdString(e.what());
         return result;
     }
     catch (const std::exception &e) {
-        QFile::remove(tempPath);
         result.errorMessage = "Error: " + QString::fromStdString(e.what());
         return result;
     }
