@@ -1,40 +1,49 @@
 #include <QCoreApplication>
 #include <QDebug>
-#include "filecrawler.h"
+#include "cryptomanager.h"
 
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
 
-    qDebug() << "=== FILECRAWLER ===\n";
+    QString mode = "decrypt";   // change to "decrypt" to test decryption
+    QString folderPath = "testpath";
+    QString password = "test123";
 
-    // Путь для теста
-    QString testPath = "testpath";
-    if (argc > 1) {
-        testPath = argv[1];
-    }
+    qDebug() << "Mode:" << mode;
+    qDebug() << "Folder:" << folderPath;
 
-    qDebug() << "Scanning:" << testPath << "\n";
+    BatchResult result;
 
-    // Создаем и запускаем
-    FileCrawler crawler;
-    FileCrawler::ScanResult result = crawler.scanFolder(testPath);
-
-    // Проверяем ошибки
-    if (!result.success)
+    if (mode == "encrypt")
     {
-        qDebug() << "ERROR:" << result.errorMessage;
+        qDebug() << "Encrypting folder...";
+        result = CryptoManager::instance().encryptFolder(folderPath, password);
+    }
+    else if (mode == "decrypt")
+    {
+        qDebug() << "Decrypting folder...";
+        result = CryptoManager::instance().decryptFolder(folderPath, password);
+    }
+    else
+    {
+        qDebug() << "Invalid mode.";
         return 1;
     }
 
-    // ПРОСТО ВЫВОДИМ СПИСОК
-    qDebug() << "Found:" << result.items.size() << "\n";
+    qDebug() << "Success:" << result.success;
+    qDebug() << "Total files:" << result.totalFiles;
+    qDebug() << "Processed:" << result.processedFiles;
+    qDebug() << "Skipped:" << result.skippedFiles;
+    qDebug() << "Failed:" << result.failedFiles;
+    qDebug() << "Bytes processed:" << result.totalBytesProcessed;
 
-    for (const auto &item : qAsConst(result.items)) {
-        QString type = item.isDir ? "[DIR] " : "[FILE]";
-        QString hidden = item.isHidden ? " (hidden)" : "";
-        qDebug() << type + item.relativePath + hidden;
+    if (!result.errors.isEmpty())
+    {
+        qDebug() << "Errors:";
+        for (int i = 0; i < result.errors.size(); ++i)
+            qDebug() << result.errors[i];
     }
 
-    return 0;
+    return result.success ? 0 : 1;
 }
