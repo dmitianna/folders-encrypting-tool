@@ -2,7 +2,7 @@
 
 #include <QFile>
 #include <QFileInfo>
-
+#include <QSaveFile>
 #include <files.h>
 #include <filters.h>
 #include <gcm.h>
@@ -94,15 +94,6 @@ FileResult FileDecryptor::decryptFile(const QString &filePath, const QString &pa
         return result;
     }
 
-    const QString tempPath = makeTempFilePath(filePath);
-
-    if (QFile::exists(tempPath)) {
-        if (!QFile::remove(tempPath)) {
-            result.errorMessage = "Temporary file already exists and cannot be removed: " + tempPath;
-            return result;
-        }
-    }
-
     try {
         QFile inputFile(filePath);
         if (!inputFile.open(QIODevice::ReadOnly)) {
@@ -138,7 +129,7 @@ FileResult FileDecryptor::decryptFile(const QString &filePath, const QString &pa
             return result;
         }
 
-        const QByteArray encryptedData = inputFile.readAll(); // ciphertext + tag
+        const QByteArray encryptedData = inputFile.readAll();
         inputFile.close();
 
         if (encryptedData.size() < TAG_SIZE) {
@@ -165,41 +156,24 @@ FileResult FileDecryptor::decryptFile(const QString &filePath, const QString &pa
                 static_cast<size_t>(encryptedData.size()));
         adf.MessageEnd();
 
-        QFile tempFile(tempPath);
-        if (!tempFile.open(QIODevice::WriteOnly)) {
-            result.errorMessage = "Failed to create temporary file: " + tempPath;
+        QSaveFile outputFile(filePath);
+        if (!outputFile.open(QIODevice::WriteOnly)) {
+            result.errorMessage = "Failed to open output file for atomic write: " + filePath;
             return result;
         }
 
         if (!plainText.empty()) {
-            const qint64 written = tempFile.write(plainText.data(),
-                                                  static_cast<qint64>(plainText.size()));
+            const qint64 written = outputFile.write(plainText.data(),
+                                                    static_cast<qint64>(plainText.size()));
             if (written != static_cast<qint64>(plainText.size())) {
-                tempFile.close();
-                QFile::remove(tempPath);
+                outputFile.cancelWriting();
                 result.errorMessage = "Failed to write decrypted data.";
                 return result;
             }
         }
 
-        tempFile.close();
-
-        QFileInfo tempInfo(tempPath);
-        if (!tempInfo.exists()) {
-            QFile::remove(tempPath);
-            result.errorMessage = "Temporary decrypted file was not created.";
-            return result;
-        }
-
-        if (!QFile::remove(filePath)) {
-            QFile::remove(tempPath);
-            result.errorMessage = "Failed to remove encrypted file.";
-            return result;
-        }
-
-        QFile renamedFile(tempPath);
-        if (!renamedFile.rename(filePath)) {
-            result.errorMessage = "Failed to replace encrypted file with decrypted file.";
+        if (!outputFile.commit()) {
+            result.errorMessage = "Failed to replace encrypted file atomically.";
             return result;
         }
 
@@ -208,17 +182,14 @@ FileResult FileDecryptor::decryptFile(const QString &filePath, const QString &pa
         return result;
     }
     catch (const HashVerificationFilter::HashVerificationFailed &) {
-        QFile::remove(tempPath);
         result.errorMessage = "Invalid password or corrupted encrypted file.";
         return result;
     }
     catch (const Exception &e) {
-        QFile::remove(tempPath);
         result.errorMessage = "Crypto++ error: " + QString::fromStdString(e.what());
         return result;
     }
     catch (const std::exception &e) {
-        QFile::remove(tempPath);
         result.errorMessage = "Error: " + QString::fromStdString(e.what());
         return result;
     }
