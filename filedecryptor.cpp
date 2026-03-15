@@ -52,10 +52,6 @@ bool FileDecryptor::hasEncryptionSignature(const QString &filePath)
     return signature == ENCRYPTION_SIGNATURE;
 }
 
-QString FileDecryptor::makeTempFilePath(const QString &filePath) const
-{
-    return filePath + ".tmp_dec";
-}
 
 FileResult FileDecryptor::decryptFile(const QString &filePath, const QString &password)
 {
