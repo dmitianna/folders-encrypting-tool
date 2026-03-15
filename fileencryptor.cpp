@@ -5,7 +5,7 @@
 
 #include <files.h>
 #include <filters.h>
-#include <modes.h>
+#include <gcm.h>
 #include <osrng.h>
 
 using namespace CryptoPP;
@@ -139,19 +139,23 @@ FileResult FileEncryptor::encryptFile(const QString &filePath, const QString &pa
         const SecByteBlock iv = generateIV(IV_SIZE);
         const SecByteBlock key = deriveKey(password, salt, AES::MAX_KEYLENGTH);
 
-        CBC_Mode<AES>::Encryption encryption;
+        GCM<AES>::Encryption encryption;
         encryption.SetKeyWithIV(key, key.size(), iv, iv.size());
 
-        std::string cipherText;
-        StringSource(
-            reinterpret_cast<const byte*>(plainData.constData()),
-            static_cast<size_t>(plainData.size()),
-            true,
-            new StreamTransformationFilter(
-                encryption,
-                new StringSink(cipherText)
-                )
+        std::string encryptedData; // ciphertext + tag
+        AuthenticatedEncryptionFilter aef(
+            encryption,
+            new StringSink(encryptedData),
+            false,
+            TAG_SIZE
             );
+
+        if (!plainData.isEmpty()) {
+            aef.Put(reinterpret_cast<const byte*>(plainData.constData()),
+                    static_cast<size_t>(plainData.size()));
+        }
+        aef.MessageEnd();
+
 
         QFile tempFile(tempPath);
         if (!tempFile.open(QIODevice::WriteOnly)) {
@@ -180,9 +184,10 @@ FileResult FileEncryptor::encryptFile(const QString &filePath, const QString &pa
             return result;
         }
 
-        if (!cipherText.empty()) {
-            const qint64 written = tempFile.write(cipherText.data(), static_cast<qint64>(cipherText.size()));
-            if (written != static_cast<qint64>(cipherText.size())) {
+        if (!encryptedData.empty()) {
+            const qint64 written = tempFile.write(encryptedData.data(),
+                                                  static_cast<qint64>(encryptedData.size()));
+            if (written != static_cast<qint64>(encryptedData.size())) {
                 tempFile.close();
                 QFile::remove(tempPath);
                 result.errorMessage = "Failed to write encrypted data.";
