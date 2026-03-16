@@ -4,20 +4,9 @@
 #include "fileencryptor.h"
 #include "filedecryptor.h"
 #include "filecrawler.h"
-
+#include "batchresult.h"
 #include <QString>
 #include <QStringList>
-
-struct BatchResult
-{
-    bool success = false;
-    int totalFiles = 0;
-    int processedFiles = 0;
-    int skippedFiles = 0;
-    int failedFiles = 0;
-    qint64 totalBytesProcessed = 0;
-    QStringList errors;
-};
 
 class CryptoManager
 {
