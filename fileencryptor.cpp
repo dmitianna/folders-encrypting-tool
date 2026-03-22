@@ -2,10 +2,10 @@
 
 #include <QFile>
 #include <QFileInfo>
-
+#include <QSaveFile>
 #include <files.h>
 #include <filters.h>
-#include <modes.h>
+#include <gcm.h>
 #include <osrng.h>
 
 using namespace CryptoPP;
@@ -69,10 +69,6 @@ bool FileEncryptor::hasEncryptionSignature(const QString &filePath)
     return signature == ENCRYPTION_SIGNATURE;
 }
 
-QString FileEncryptor::makeTempFilePath(const QString &filePath) const
-{
-    return filePath + ".tmp_enc";
-}
 
 FileResult FileEncryptor::encryptFile(const QString &filePath, const QString &password)
 {
@@ -116,15 +112,6 @@ FileResult FileEncryptor::encryptFile(const QString &filePath, const QString &pa
         return result;
     }
 
-    const QString tempPath = makeTempFilePath(filePath);
-
-    if (QFile::exists(tempPath)) {
-        if (!QFile::remove(tempPath)) {
-            result.errorMessage = "Temporary file already exists and cannot be removed: " + tempPath;
-            return result;
-        }
-    }
-
     try {
         QFile inputFile(filePath);
         if (!inputFile.open(QIODevice::ReadOnly)) {
@@ -139,75 +126,59 @@ FileResult FileEncryptor::encryptFile(const QString &filePath, const QString &pa
         const SecByteBlock iv = generateIV(IV_SIZE);
         const SecByteBlock key = deriveKey(password, salt, AES::MAX_KEYLENGTH);
 
-        CBC_Mode<AES>::Encryption encryption;
+        GCM<AES>::Encryption encryption;
         encryption.SetKeyWithIV(key, key.size(), iv, iv.size());
 
-        std::string cipherText;
-        StringSource(
-            reinterpret_cast<const byte*>(plainData.constData()),
-            static_cast<size_t>(plainData.size()),
-            true,
-            new StreamTransformationFilter(
-                encryption,
-                new StringSink(cipherText)
-                )
+        std::string encryptedData;
+        AuthenticatedEncryptionFilter aef(
+            encryption,
+            new StringSink(encryptedData),
+            false,
+            TAG_SIZE
             );
 
-        QFile tempFile(tempPath);
-        if (!tempFile.open(QIODevice::WriteOnly)) {
-            result.errorMessage = "Failed to create temporary file: " + tempPath;
+        if (!plainData.isEmpty()) {
+            aef.Put(reinterpret_cast<const byte*>(plainData.constData()),
+                    static_cast<size_t>(plainData.size()));
+        }
+        aef.MessageEnd();
+
+        QSaveFile outputFile(filePath);
+        if (!outputFile.open(QIODevice::WriteOnly)) {
+            result.errorMessage = "Failed to open output file for write: " + filePath;
             return result;
         }
 
-        if (tempFile.write(ENCRYPTION_SIGNATURE) != ENCRYPTION_SIGNATURE.size()) {
-            tempFile.close();
-            QFile::remove(tempPath);
+        if (outputFile.write(ENCRYPTION_SIGNATURE) != ENCRYPTION_SIGNATURE.size()) {
+            outputFile.cancelWriting();
             result.errorMessage = "Failed to write file signature.";
             return result;
         }
 
-        if (tempFile.write(reinterpret_cast<const char*>(salt.data()), SALT_SIZE) != SALT_SIZE) {
-            tempFile.close();
-            QFile::remove(tempPath);
+        if (outputFile.write(reinterpret_cast<const char*>(salt.data()), SALT_SIZE) != SALT_SIZE) {
+            outputFile.cancelWriting();
             result.errorMessage = "Failed to write salt.";
             return result;
         }
 
-        if (tempFile.write(reinterpret_cast<const char*>(iv.data()), IV_SIZE) != IV_SIZE) {
-            tempFile.close();
-            QFile::remove(tempPath);
+        if (outputFile.write(reinterpret_cast<const char*>(iv.data()), IV_SIZE) != IV_SIZE) {
+            outputFile.cancelWriting();
             result.errorMessage = "Failed to write IV.";
             return result;
         }
 
-        if (!cipherText.empty()) {
-            const qint64 written = tempFile.write(cipherText.data(), static_cast<qint64>(cipherText.size()));
-            if (written != static_cast<qint64>(cipherText.size())) {
-                tempFile.close();
-                QFile::remove(tempPath);
+        if (!encryptedData.empty()) {
+            const qint64 written = outputFile.write(encryptedData.data(),
+                                                    static_cast<qint64>(encryptedData.size()));
+            if (written != static_cast<qint64>(encryptedData.size())) {
+                outputFile.cancelWriting();
                 result.errorMessage = "Failed to write encrypted data.";
                 return result;
             }
         }
 
-        tempFile.close();
-
-        QFileInfo tempInfo(tempPath);
-        if (!tempInfo.exists() || tempInfo.size() <= 0) {
-            QFile::remove(tempPath);
-            result.errorMessage = "Temporary encrypted file was not created correctly.";
-            return result;
-        }
-
-        if (!QFile::remove(filePath)) {
-            QFile::remove(tempPath);
-            result.errorMessage = "Failed to remove original file.";
-            return result;
-        }
-
-        QFile renamedFile(tempPath);
-        if (!renamedFile.rename(filePath)) {
-            result.errorMessage = "Failed to replace original file with encrypted file.";
+        if (!outputFile.commit()) {
+            result.errorMessage = "Failed to replace original file.";
             return result;
         }
 
@@ -216,12 +187,10 @@ FileResult FileEncryptor::encryptFile(const QString &filePath, const QString &pa
         return result;
     }
     catch (const Exception &e) {
-        QFile::remove(tempPath);
         result.errorMessage = "Crypto++ error: " + QString::fromStdString(e.what());
         return result;
     }
     catch (const std::exception &e) {
-        QFile::remove(tempPath);
         result.errorMessage = "Error: " + QString::fromStdString(e.what());
         return result;
     }
