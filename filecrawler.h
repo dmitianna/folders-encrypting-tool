@@ -6,26 +6,10 @@
 #include <QDirIterator>
 #include <QList>
 #include <QString>
-
+#include "scanresult.h"
 class FileCrawler
 {
 public:
-    struct FileItem
-    {
-        QString filePath;
-        QString fileName;
-        QString relativePath;
-        qint64 size = 0;
-        bool isHidden = false;
-    };
-
-    struct ScanResult
-    {
-        bool success = false;
-        QString errorMessage;
-        QList<FileItem> items;
-    };
-
     FileCrawler();
 
     ScanResult scanFolder(const QString &path);
