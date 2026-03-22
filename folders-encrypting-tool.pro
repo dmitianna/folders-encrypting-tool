@@ -24,7 +24,9 @@ HEADERS += \
     filecrawler.h \
     filedecryptor.h \
     fileencryptor.h \
-    fileresult.h
+    fileitem.h \
+    fileresult.h \
+    scanresult.h
 
 INCLUDEPATH += $$PWD/third_party/cryptopp/include
 LIBS += -L$$PWD/third_party/cryptopp/lib -lcryptopp
