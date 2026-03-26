@@ -1,10 +1,10 @@
 #include "filecrawler.h"
-
+#include "scanresult.h"
 FileCrawler::FileCrawler()
 {
 }
 
-FileCrawler::ScanResult FileCrawler::scanFolder(const QString &path)
+ScanResult FileCrawler::scanFolder(const QString &path)
 {
     ScanResult result;
     result.success = false;
