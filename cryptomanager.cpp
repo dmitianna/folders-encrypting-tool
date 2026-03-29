@@ -17,6 +17,14 @@ CryptoManager& CryptoManager::instance()
 
 FileResult CryptoManager::encryptFile(const QString& path, const QString& password)
 {
+    if (path.trimmed().isEmpty())
+    {
+        FileResult result;
+        result.success = false;
+        result.errorMessage = "Path must not be empty.";
+        return result;
+    }
+
     if (password.trimmed().isEmpty()) {
         FileResult result;
         result.success = false;
@@ -29,6 +37,13 @@ FileResult CryptoManager::encryptFile(const QString& path, const QString& passwo
 
 FileResult CryptoManager::decryptFile(const QString& path, const QString& password)
 {
+    if (path.trimmed().isEmpty())
+    {
+        FileResult result;
+        result.success = false;
+        result.errorMessage = "Path must not be empty.";
+        return result;
+    }
     if (password.trimmed().isEmpty()) {
         FileResult result;
         result.success = false;
