@@ -14,6 +14,8 @@ void printHelp()
     out << "  encrypt  - encrypt file or folder\n";
     out << "  decrypt  - decrypt file or folder\n";
     out << "  exit     - exit program\n\n";
+    out << " You can enter exit at any step to exit from program\n";
+    out << "  exit     - exit program\n\n";
 }
 
 QString readNonEmptyLine(const QString& prompt)
@@ -117,7 +119,6 @@ int main(int argc, char *argv[])
         }
 
         QString path = readNonEmptyLine("Enter file or folder path: ");
-        QString password = readNonEmptyLine("Enter password: ");
 
         QFileInfo info(path);
 
@@ -127,7 +128,7 @@ int main(int argc, char *argv[])
             out.flush();
             continue;
         }
-
+        QString password = readNonEmptyLine("Enter password: ");
         CryptoManager& manager = CryptoManager::instance();
 
         if (info.isFile())
