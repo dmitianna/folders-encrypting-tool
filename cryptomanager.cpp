@@ -1,5 +1,6 @@
 #include "cryptomanager.h"
-
+#include "scanresult.h"
+#include "fileitem.h"
 CryptoManager::CryptoManager()
 {
 }
@@ -16,6 +17,14 @@ CryptoManager& CryptoManager::instance()
 
 FileResult CryptoManager::encryptFile(const QString& path, const QString& password)
 {
+    if (path.trimmed().isEmpty())
+    {
+        FileResult result;
+        result.success = false;
+        result.errorMessage = "Path must not be empty.";
+        return result;
+    }
+
     if (password.trimmed().isEmpty()) {
         FileResult result;
         result.success = false;
@@ -28,6 +37,13 @@ FileResult CryptoManager::encryptFile(const QString& path, const QString& passwo
 
 FileResult CryptoManager::decryptFile(const QString& path, const QString& password)
 {
+    if (path.trimmed().isEmpty())
+    {
+        FileResult result;
+        result.success = false;
+        result.errorMessage = "Path must not be empty.";
+        return result;
+    }
     if (password.trimmed().isEmpty()) {
         FileResult result;
         result.success = false;
@@ -60,7 +76,7 @@ BatchResult CryptoManager::processFolder(const QString& folderPath,
         return batchResult;
     }
 
-    FileCrawler::ScanResult scanResult = crawler.scanFolder(folderPath);
+    ScanResult scanResult = crawler.scanFolder(folderPath);
 
     if (!scanResult.success) {
         batchResult.success = false;
@@ -69,12 +85,12 @@ BatchResult CryptoManager::processFolder(const QString& folderPath,
     }
 
     batchResult.totalFiles = scanResult.items.size();
-    const QList<FileCrawler::FileItem>& items = scanResult.items;
+    const QList<FileItem>& items = scanResult.items;
     const int count = items.size();
 
     for (int i = 0; i < count; ++i)
     {
-        const FileCrawler::FileItem& item = items[i];
+        const FileItem& item = items[i];
 
         FileResult fileResult;
 
