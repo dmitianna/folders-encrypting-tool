@@ -6,7 +6,6 @@
 
 QTextStream in(stdin);
 QTextStream out(stdout);
-QTextStream err(stderr);
 
 void printHelp()
 {
@@ -14,6 +13,8 @@ void printHelp()
     out << "Available commands:\n";
     out << "  encrypt  - encrypt file or folder\n";
     out << "  decrypt  - decrypt file or folder\n";
+    out << "  exit     - exit program\n\n";
+    out << " You can enter exit at any step to exit from program\n";
     out << "  exit     - exit program\n\n";
 }
 
@@ -26,10 +27,26 @@ QString readNonEmptyLine(const QString& prompt)
 
         QString value = in.readLine().trimmed();
 
+        QString lower = value.toLower();
+
+        if (lower == "exit")
+        {
+            out << "Program finished.\n";
+            out.flush();
+            exit(0);
+        }
+
+        if ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith('\'') && value.endsWith('\'')))
+        {
+            value = value.mid(1, value.length() - 2).trimmed();
+        }
+
         if (!value.isEmpty())
             return value;
 
-        err << "Input must not be empty.\n";
+        out << "Input must not be empty.\n";
+        out.flush();
     }
 }
 
@@ -49,6 +66,8 @@ void printFileResult(const FileResult& result)
 
     if (!result.errorMessage.isEmpty())
         out << "Message: " << result.errorMessage << "\n";
+
+    out.flush();
 }
 
 void printBatchResult(const BatchResult& result)
@@ -70,6 +89,8 @@ void printBatchResult(const BatchResult& result)
         for (int i = 0; i < result.errors.size(); ++i)
             out << "  - " << result.errors[i] << "\n";
     }
+
+    out.flush();
 }
 
 int main(int argc, char *argv[])
@@ -86,26 +107,28 @@ int main(int argc, char *argv[])
         if (command == "exit")
         {
             out << "Program finished.\n";
+            out.flush();
             return 0;
         }
 
         if (command != "encrypt" && command != "decrypt")
         {
-            err << "Unknown command. Please enter encrypt, decrypt or exit.\n\n";
+            out << "Unknown command. Please enter encrypt, decrypt or exit.\n\n";
+            out.flush();
             continue;
         }
 
         QString path = readNonEmptyLine("Enter file or folder path: ");
-        QString password = readNonEmptyLine("Enter password: ");
 
         QFileInfo info(path);
 
         if (!info.exists())
         {
-            err << "Error: path does not exist: " << path << "\n\n";
+            out << "Error: path does not exist: " << path << "\n\n";
+            out.flush();
             continue;
         }
-
+        QString password = readNonEmptyLine("Enter password: ");
         CryptoManager& manager = CryptoManager::instance();
 
         if (info.isFile())
@@ -136,7 +159,8 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        err << "Error: specified path is neither a file nor a folder.\n\n";
+        out << "Error: specified path is neither a file nor a folder.\n\n";
+        out.flush();
     }
 
     return 0;
