@@ -78,6 +78,11 @@ FileResult FileDecryptor::decryptFile(const QString &filePath, const QString &pa
         return result;
     }
 
+    if (!fileInfo.isWritable()) {
+        result.errorMessage = "File is not writable: " + filePath;
+        return result;
+    }
+
     QFileInfo dirInfo(fileInfo.absolutePath());
     if (!dirInfo.isWritable()) {
         result.errorMessage = "Target directory is not writable: " + fileInfo.absolutePath();
