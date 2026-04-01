@@ -25,10 +25,9 @@ private:
 
     CryptoManager(const CryptoManager&) = delete;
     CryptoManager& operator=(const CryptoManager&) = delete;
-
-    BatchResult processFolder(const QString& folderPath,
-                              const QString& password,
-                              bool encryptMode);
+    CryptoManager(CryptoManager&&) = delete;
+    CryptoManager& operator=(CryptoManager&&) = delete;
+    BatchResult processFolder(const QString& folderPath,const QString& password,bool encryptMode);
 
 private:
     FileEncryptor encryptor;
