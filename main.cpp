@@ -14,8 +14,12 @@ void printHelp()
     out << "  encrypt  - encrypt file or folder\n";
     out << "  decrypt  - decrypt file or folder\n";
     out << "  exit     - exit program\n\n";
-    out << " You can enter exit at any step to exit from program\n";
-    out << "  exit     - exit program\n\n";
+
+    out << "Tip: You can type 'exit' at any time to leave the program.\n";
+    out << "Tip: If the password is lost, encrypted files cannot be recovered.\n\n";
+
+    out << "Note: Due to technical limitations, hidden files and directories are not processed.\n";
+    out << "      Contents of hidden directories are also excluded from processing.\n\n";
 }
 
 QString readNonEmptyLine(const QString& prompt)
