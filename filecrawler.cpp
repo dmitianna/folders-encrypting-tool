@@ -25,11 +25,15 @@ ScanResult FileCrawler::scanFolder(const QString &path)
         return result;
     }
 
+
+    if (dirInfo.isHidden()) {
+        result.errorMessage = "Error: program can not working to hide files/folders.'" + path + " has attribute hide'";
+        return result;
+    }
+
     m_rootPath = QDir(path).absolutePath();
 
-    QDirIterator it(path,
-                    QDir::Files | QDir::NoDotAndDotDot | QDir::Hidden,
-                    QDirIterator::Subdirectories);
+    QDirIterator it(path,QDir::Files | QDir::NoDotAndDotDot,QDirIterator::Subdirectories);
 
     while (it.hasNext()) {
         it.next();
@@ -39,12 +43,15 @@ ScanResult FileCrawler::scanFolder(const QString &path)
         {
             continue;
         }
+        if (entry.isHidden())
+        {
+            continue;
+        }
         FileItem item;
         item.filePath = entry.absoluteFilePath();
         item.fileName = entry.fileName();
         item.relativePath = QDir(m_rootPath).relativeFilePath(entry.absoluteFilePath());
         item.size = entry.size();
-        item.isHidden = entry.isHidden();
 
         result.items.append(item);
     }

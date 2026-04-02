@@ -8,6 +8,5 @@ struct FileItem
     QString fileName;
     QString relativePath;
     qint64 size = 0;
-    bool isHidden = false;
 };
 #endif // FILEITEM_H
