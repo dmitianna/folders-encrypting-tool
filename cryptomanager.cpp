@@ -1,6 +1,9 @@
 #include "cryptomanager.h"
 #include "scanresult.h"
 #include "fileitem.h"
+
+const int MAX_PASSWORD_LENGTH = 64;
+
 CryptoManager::CryptoManager()
 {
 }
@@ -32,6 +35,12 @@ FileResult CryptoManager::encryptFile(const QString& path, const QString& passwo
         return result;
     }
 
+    if (password.length() > MAX_PASSWORD_LENGTH) {
+        FileResult result;
+        result.success = false;
+        result.errorMessage = "Password's length can no be more than 64 characters.";
+        return result;
+    }
     return encryptor.encryptFile(path, password);
 }
 
@@ -50,6 +59,12 @@ FileResult CryptoManager::decryptFile(const QString& path, const QString& passwo
         result.errorMessage = "Password must not be empty.";
         return result;
     }
+    if (password.length() > MAX_PASSWORD_LENGTH) {
+        FileResult result;
+        result.success = false;
+        result.errorMessage = "Password's length can no be more than 64 characters.";
+        return result;
+    }
 
     return decryptor.decryptFile(path, password);
 }
@@ -64,15 +79,19 @@ BatchResult CryptoManager::decryptFolder(const QString& folderPath, const QStrin
     return processFolder(folderPath, password, false);
 }
 
-BatchResult CryptoManager::processFolder(const QString& folderPath,
-                                         const QString& password,
-                                         bool encryptMode)
+BatchResult CryptoManager::processFolder(const QString& folderPath,const QString& password,bool encryptMode)
 {
     BatchResult batchResult;
 
     if (password.trimmed().isEmpty()) {
         batchResult.success = false;
         batchResult.errors.append("Password must not be empty.");
+        return batchResult;
+    }
+
+    if (password.length() > MAX_PASSWORD_LENGTH) {
+        batchResult.success = false;
+        batchResult.errors.append("Password's length can no be more than 64 characters.");
         return batchResult;
     }
 
