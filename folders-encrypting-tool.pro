@@ -11,7 +11,10 @@ SOURCES += \
         filecrawler.cpp \
         filedecryptor.cpp \
         fileencryptor.cpp \
-        main.cpp
+        main.cpp \
+        pathutils.cpp \
+        unixutils.cpp \
+        windowsutils.cpp
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -26,7 +29,10 @@ HEADERS += \
     fileencryptor.h \
     fileitem.h \
     fileresult.h \
-    scanresult.h
+    pathutils.h \
+    scanresult.h \
+    unixutils.h \
+    windowsutils.h
 
 INCLUDEPATH += $$PWD/third_party/cryptopp/include
 LIBS += -L$$PWD/third_party/cryptopp/lib -lcryptopp
