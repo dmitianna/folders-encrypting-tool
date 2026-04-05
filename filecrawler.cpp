@@ -1,5 +1,6 @@
 #include "filecrawler.h"
 #include "scanresult.h"
+#include "pathutils.h"
 FileCrawler::FileCrawler()
 {
 }
@@ -31,6 +32,11 @@ ScanResult FileCrawler::scanFolder(const QString &path)
         return result;
     }
 
+    if (isProtectedSystemPath(dirInfo)) {
+        result.errorMessage = "Error: system folders are not allowed: " + path;
+        return result;
+    }
+
     m_rootPath = QDir(path).absolutePath();
 
     QDirIterator it(path,QDir::Files | QDir::NoDotAndDotDot,QDirIterator::Subdirectories);
@@ -44,6 +50,10 @@ ScanResult FileCrawler::scanFolder(const QString &path)
             continue;
         }
         if (entry.isHidden())
+        {
+            continue;
+        }
+        if (isProtectedSystemPath(entry))
         {
             continue;
         }

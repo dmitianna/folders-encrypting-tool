@@ -6,6 +6,7 @@
 #include <files.h>
 #include <filters.h>
 #include <gcm.h>
+#include "pathutils.h"
 
 using namespace CryptoPP;
 
@@ -73,6 +74,12 @@ FileResult FileDecryptor::decryptFile(const QString &filePath, const QString &pa
         return result;
     }
 
+    if (isProtectedSystemPath(fileInfo)) {
+        result.skipped = true;
+        result.errorMessage = "System file is not allowed: " + filePath;
+        return result;
+    }
+
     if (!fileInfo.isReadable()) {
         result.errorMessage = "File is not readable: " + filePath;
         return result;
@@ -84,6 +91,13 @@ FileResult FileDecryptor::decryptFile(const QString &filePath, const QString &pa
     }
 
     QFileInfo dirInfo(fileInfo.absolutePath());
+
+    if (isProtectedSystemPath(dirInfo)) {
+        result.skipped = true;
+        result.errorMessage = "Target system directory is not allowed: " + fileInfo.absolutePath();
+        return result;
+    }
+
     if (!dirInfo.isWritable()) {
         result.errorMessage = "Target directory is not writable: " + fileInfo.absolutePath();
         return result;
