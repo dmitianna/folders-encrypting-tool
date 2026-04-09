@@ -9,8 +9,6 @@ CONFIG += c++17 cmdline
 SOURCES += \
         cryptomanager.cpp \
         filecrawler.cpp \
-        filedecryptor.cpp \
-        fileencryptor.cpp \
         main.cpp \
         pathutils.cpp \
         unixutils.cpp \
@@ -25,8 +23,6 @@ HEADERS += \
     batchresult.h \
     cryptomanager.h \
     filecrawler.h \
-    filedecryptor.h \
-    fileencryptor.h \
     fileitem.h \
     fileresult.h \
     pathutils.h \
