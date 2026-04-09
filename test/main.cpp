@@ -1,12 +1,12 @@
 #include <QCoreApplication>
 #include <QTextStream>
 #include <QFileInfo>
-
-//#include "../cryptomanager.h"
-#include "../fileencryptor.h"
-#include "../filedecryptor.h"
+#include <QFile>
+#include <QDir>
+#include "../cryptomanager.h"
 #include "../batchresult.h"
 #include "../scanresult.h"
+//#include "../filecrawler.h"
 QTextStream in(stdin);
 QTextStream out(stdout);
 QTextStream err(stderr);
@@ -113,10 +113,11 @@ QByteArray readFile(const QString& path)
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
+    //CryptoManager& manager = CryptoManager::instance();
     //filecrawler
     //FileCrawler crawler;
-    /*
     // 1.пустой путь
+    /*
     {
     QString path = "";
     ScanResult result = crawler.scanFolder(path);
@@ -209,33 +210,32 @@ int main(int argc, char *argv[])
     printResult("Test 10: symlink handling", result);
     }
 */
-//---------------------------------------------------------------------------
-    FileEncryptor encryptor;
-    FileDecryptor decryptor;
 
-    // 0. Пустой путь при шифровании
+//---------------------------------------------------------------------------
+//0. Пустой путь при шифровании
 /*
 {
     QString path = "";
-    FileResult result = encryptor.encryptFile(path, "1234");
+    CryptoManager& manager = CryptoManager::instance();
+    FileResult result = manager.encryptFile(path, "1234");
     printFileResult(result);
 }
 */
 
     // 1. Пустой пароль при шифровании
-/*
+    /*
 {
     QString path = "";
-    FileResult result = encryptor.encryptFile(path, "");
+    FileResult result = manager.encryptFile(path, "");
     printFileResult(result);
 }
-*/
 
+*/
     // Системный файл
     /*
 {
     QString path = "";
-    FileResult result = encryptor.encryptFile(path, "1234");
+    FileResult result = manager.encryptFile(path, "1234");
     printFileResult(result);
 }
 */
@@ -243,7 +243,7 @@ int main(int argc, char *argv[])
     /*
 {
     QString path = "";
-    FileResult result = encryptor.encryptFile(path, "1234");
+    FileResult result = manager.encryptFile(path, "1234");
     printFileResult(result);
 }
 */
@@ -252,7 +252,7 @@ int main(int argc, char *argv[])
 /*
 {
     QString path = "";
-    FileResult result = encryptor.encryptFile(path, "1234");
+    FileResult result = manager.encryptFile(path, "1234");
     printFileResult(result);
 }
 */
@@ -263,7 +263,7 @@ int main(int argc, char *argv[])
     QString path = "";
     QByteArray original = "Тестовый файл";
 
-    FileResult result = encryptor.encryptFile(path, "1234");
+    FileResult result = manager.encryptFile(path, "1234");
     printFileResult(result);
 
     QByteArray encrypted = readFile(path);
@@ -279,9 +279,8 @@ int main(int argc, char *argv[])
     /*
 {
     QString path = "";
-    encryptor.encryptFile(path, "1234");
-
-    FileResult result = encryptor.encryptFile(path, "1234");
+    manager.encryptFile(path, "1234");
+    FileResult result = manager.encryptFile(path, "1234");
     printFileResult(result);
 }
 */
@@ -293,7 +292,7 @@ int main(int argc, char *argv[])
     FileResult enc = encryptor.encryptFile(path, "1234");
     printFileResult(enc);
 
-    FileResult dec = decryptor.decryptFile(path, "1234");
+    FileResult dec = manager.decryptFile(path, "1234");
     printFileResult(dec);
 
     QByteArray decrypted = readFile(path);
@@ -308,7 +307,7 @@ int main(int argc, char *argv[])
 /*
 {
     QString path = "";
-    FileResult result = decryptor.decryptFile(path, "1234");
+    FileResult result = manager.decryptFile(path, "1234");
     printFileResult(result);
 }
 */
@@ -317,7 +316,7 @@ int main(int argc, char *argv[])
 /*
 {
     QString path = "/testfolders/test3/empty.txt";
-    FileResult result = decryptor.decryptFile(path, "");
+    FileResult result = manager.decryptFile(path, "");
     printFileResult(result);
 }
 */
@@ -325,7 +324,7 @@ int main(int argc, char *argv[])
 /*
 {
     QString path = "/testfiles/not_exist.txt";
-    FileResult result = decryptor.decryptFile(path, "1234");
+    FileResult result = manager.decryptFile(path, "1234");
     printFileResult(result);
 }
 */
@@ -334,7 +333,7 @@ int main(int argc, char *argv[])
 /*
 {
     QString path = "/testfolders/test3";
-    FileResult result = decryptor.decryptFile(path, "1234");
+    FileResult result = manager.decryptFile(path, "1234");
     printFileResult(result);
 }
 */
@@ -344,30 +343,8 @@ int main(int argc, char *argv[])
 {
     QString path = "/testfolders/test1/test1.txt";
 
-    FileResult result = decryptor.decryptFile(path, "1234");
+    FileResult result = manager.decryptFile(path, "1234");
     printFileResult(result);
-}
-*/
-
-    // 12. Успешное дешифрование и сравнение с оригиналом
-    /*
-{
-    QString path = "/testfolders/test1/test1.txt";
-    QByteArray original = "Hello encryption test 123";
-    writeFile(path, original);
-
-    FileResult enc = encryptor.encryptFile(path, "1234");
-    printFileResult(enc);
-
-    FileResult dec = decryptor.decryptFile(path, "1234");
-    printFileResult(dec);
-
-    QByteArray decrypted = readFile(path);
-
-    if (decrypted == original)
-        out << "[PASS] decrypted matches original\n";
-    else
-        out << "[FAIL] decrypted does not match original\n";
 }
 */
 
@@ -376,11 +353,11 @@ int main(int argc, char *argv[])
 {
     QString path = "/testfolders/test1/test1.txt";
     writeFile(path, "Secret data");
-    encryptor.encryptFile(path, "1234");
+    manager.encryptFile(path, "1234");
 
-    FileResult result = decryptor.decryptFile(path, "wrong_password");
+    FileResult result = manager.decryptFile(path, "wrong_password");
     printFileResult(result);
-    decryptor.decryptFile(path, "1234");
+    manager.decryptFile(path, "1234");
 }
 */
 /*
@@ -388,14 +365,14 @@ int main(int argc, char *argv[])
 {
     QString path = "/testfolders/test1/broken.txt";
     writeFile(path, "Secret data");
-    encryptor.encryptFile(path, "1234");
+    manager.encryptFile(path, "1234");
 
     QByteArray data = readFile(path);
     if (!data.isEmpty()) {
         data[data.size() - 2] = 0x01;
         writeFile(path, data);
     }
-    FileResult result = decryptor.decryptFile(path, "1234");
+    FileResult result = manager.decryptFile(path, "1234");
     printFileResult(result);
 }
 */
@@ -407,7 +384,7 @@ int main(int argc, char *argv[])
     QByteArray bad = QByteArray::fromHex("DEADBEEFCAFEBABE");
     writeFile(path, bad);
 
-    FileResult result = decryptor.decryptFile(path, "1234");
+    FileResult result = manager.decryptFile(path, "1234");
     printFileResult(result);
 }
 */
@@ -553,20 +530,6 @@ int main(int argc, char *argv[])
 }
 */
 
-    // Test 28: Повторное encryptFolder для уже зашифрованных файлов
-    /*
-{
-    CryptoManager& manager = CryptoManager::instance();
-
-    writeFile("/testfolders/test1/file1.txt", "Hello");
-    writeFile("/testfolders/test1/file2.txt", "World");
-
-    manager.encryptFolder("/testfolders/test1", "1234");
-
-    BatchResult result = manager.encryptFolder("/testfolders/test1", "1234");
-    printBatchResult(result);
-}
-*/
 
     // Test 29: decryptFolder для обычных незашифрованных файлов
     /*
@@ -603,32 +566,6 @@ int main(int argc, char *argv[])
 }
 */
 
-    // Test 32: Полный цикл с проверкой восстановления содержимого
-    /*
-{
-    CryptoManager& manager = CryptoManager::instance();
-
-    QByteArray original1 = "Alpha";
-    QByteArray original2 = "Beta";
-
-    writeFile("/testfolders/test1/file1.txt", original1);
-    writeFile("/testfolders/test1/file2.txt", original2);
-
-    BatchResult enc = manager.encryptFolder("/testfolders/test1", "1234");
-    printBatchResult(enc);
-
-    BatchResult dec = manager.decryptFolder("/testfolders/test1", "1234");
-    printBatchResult(dec);
-
-    QByteArray file1 = readFile("/testfolders/test1/file1.txt");
-    QByteArray file2 = readFile("/testfolders/test1/file2.txt");
-
-    if (file1 == original1 && file2 == original2)
-        out << "[PASS] CryptoManager folder roundtrip restored all files\n";
-    else
-        out << "[FAIL] CryptoManager folder roundtrip did not restore all files\n";
-}
-*/
 
     // Test 33: decryptFolder с неверным паролем
     /*
@@ -644,38 +581,5 @@ int main(int argc, char *argv[])
     printBatchResult(result);
 }
 */
-
-    // Test 34: Повторное шифрование папки с добавлением нового файла и сменой пароля
-    /*
-{
-    CryptoManager& manager = CryptoManager::instance();
-
-    QString folderPath = "/testfolders/test_mixed";
-
-    writeFile(folderPath + "/file1.txt", "Hello");
-    writeFile(folderPath + "/file2.txt", "World");
-
-    BatchResult first = manager.encryptFolder(folderPath, "passwordA");
-    printBatchResult(first);
-
-    writeFile(folderPath + "/file3.txt", "New file");
-
-    BatchResult second = manager.encryptFolder(folderPath, "passwordB");
-    printBatchResult(second);
-}
-*/
-
-    // Test 35: Дешифрование папки с файлами, зашифрованными разными паролями
-    /*
-{
-    CryptoManager& manager = CryptoManager::instance();
-
-    QString folderPath = "/testfolders/test_mixed";
-
-    BatchResult result = manager.decryptFolder(folderPath, "passwordA");
-    printBatchResult(result);
-}
-  */
-
     return 0;
 }
