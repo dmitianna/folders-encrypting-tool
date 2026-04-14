@@ -9,8 +9,6 @@ SOURCES += \
     main.cpp \
     ../cryptomanager.cpp \
     ../filecrawler.cpp \
-    ../filedecryptor.cpp \
-    ../fileencryptor.cpp \
     ../pathutils.cpp \
     ../unixutils.cpp \
     ../windowsutils.cpp
@@ -19,8 +17,6 @@ HEADERS += \
     ../batchresult.h \
     ../cryptomanager.h \
     ../filecrawler.h \
-    ../filedecryptor.h \
-    ../fileencryptor.h \
     ../fileitem.h \
     ../fileresult.h \
     ../pathutils.h \

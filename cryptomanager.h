@@ -1,12 +1,13 @@
 #ifndef CRYPTOMANAGER_H
 #define CRYPTOMANAGER_H
 
-#include "fileencryptor.h"
-#include "filedecryptor.h"
 #include "filecrawler.h"
 #include "batchresult.h"
+#include "fileresult.h"
+#include <cryptlib.h>
+#include <aes.h>
 #include <QString>
-#include <QStringList>
+#include <QByteArray>
 
 class CryptoManager
 {
@@ -27,11 +28,20 @@ private:
     CryptoManager& operator=(const CryptoManager&) = delete;
     CryptoManager(CryptoManager&&) = delete;
     CryptoManager& operator=(CryptoManager&&) = delete;
-    BatchResult processFolder(const QString& folderPath,const QString& password,bool encryptMode);
 
-private:
-    FileEncryptor encryptor;
-    FileDecryptor decryptor;
+    BatchResult processFolder(const QString& folderPath,const QString& password,bool encryptMode);
+    bool isPasswordValid(const QString& password, QString& errorMessage) const;
+    bool hasEncryptionSignature(const QString& filePath) const;
+
+    CryptoPP::SecByteBlock generateSalt(size_t size = SALT_SIZE) const;
+    CryptoPP::SecByteBlock generateIV(size_t size = IV_SIZE) const;
+    CryptoPP::SecByteBlock deriveKey(const QString& password,const CryptoPP::SecByteBlock& salt,size_t keySize = CryptoPP::AES::MAX_KEYLENGTH) const;
+
+    static const QByteArray ENCRYPTION_SIGNATURE;
+    static const int SALT_SIZE = 16;
+    static const int IV_SIZE = 12;
+    static const int TAG_SIZE = 16;
+    static const int MAX_PASSWORD_LENGTH = 64;
     FileCrawler crawler;
 };
 
