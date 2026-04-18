@@ -518,7 +518,7 @@ CryptoManager::ScanResult CryptoManager::scanFolder(const QString& path) const
     return result;
 }
 
-BatchResult CryptoManager::processFolder(const QString& folderPath,const QString& password,bool encryptMode)
+BatchResult CryptoManager::processFolder(const QString& folderPath,const QString& password,bool isneedtoEncrypt)
 {
     BatchResult batchResult;
     QString passwordError;
@@ -548,7 +548,7 @@ BatchResult CryptoManager::processFolder(const QString& folderPath,const QString
 
         FileResult fileResult;
 
-        if (encryptMode)
+        if (isneedtoEncrypt)
         {
             fileResult = encryptFile(item.filePath, password);
         }

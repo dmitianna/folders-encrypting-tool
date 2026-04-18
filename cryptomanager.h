@@ -1,21 +1,36 @@
 #ifndef CRYPTOMANAGER_H
 #define CRYPTOMANAGER_H
 
-#include "batchresult.h"
-#include "fileresult.h"
 #include <cryptlib.h>
 #include <aes.h>
 #include <QString>
 #include <QByteArray>
 #include <QList>
+#include <QStringList>
+
+struct BatchResult
+{
+    bool success = false;
+    int totalFiles = 0;
+    int processedFiles = 0;
+    int skippedFiles = 0;
+    int failedFiles = 0;
+    qint64 totalBytesProcessed = 0;
+    QStringList errors;
+};
+
+struct FileResult
+{
+    bool success = false;
+    bool skipped = false;
+    QString errorMessage;
+    qint64 bytesProcessed = 0;
+};
 
 class CryptoManager
 {
 public:
     static CryptoManager& instance();
-
-    FileResult encryptFile(const QString& path, const QString& password);
-    FileResult decryptFile(const QString& path, const QString& password);
 
     BatchResult encryptFolder(const QString& folderPath, const QString& password);
     BatchResult decryptFolder(const QString& folderPath, const QString& password);
@@ -58,6 +73,10 @@ private:
     static const int IV_SIZE = 12;
     static const int TAG_SIZE = 16;
     static const int MAX_PASSWORD_LENGTH = 64;
+
+
+    FileResult encryptFile(const QString& path, const QString& password);
+    FileResult decryptFile(const QString& path, const QString& password);
 };
 
 #endif // CRYPTOMANAGER_H
