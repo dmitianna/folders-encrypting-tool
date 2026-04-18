@@ -4,6 +4,7 @@
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QDir>
+#include <QDirIterator>
 
 #include <files.h>
 #include <filters.h>
@@ -12,8 +13,6 @@
 #include <sha.h>
 #include <pwdbased.h>
 
-#include "scanresult.h"
-#include "fileitem.h"
 #include "pathutils.h"
 
 using namespace CryptoPP;
@@ -452,6 +451,73 @@ BatchResult CryptoManager::decryptFolder(const QString& folderPath, const QStrin
     return processFolder(folderPath, password, false);
 }
 
+CryptoManager::ScanResult CryptoManager::scanFolder(const QString& path) const
+{
+    ScanResult result;
+    result.success = false;
+
+    QFileInfo dirInfo(path);
+    if (!dirInfo.exists())
+    {
+        result.errorMessage = "Error: folder '" + path + "' does not exist";
+        return result;
+    }
+
+    if (!dirInfo.isDir())
+    {
+        result.errorMessage = "Error: '" + path + "' is not a folder";
+        return result;
+    }
+
+    if (!dirInfo.isReadable())
+    {
+        result.errorMessage = "Error: no read permission for '" + path + "'";
+        return result;
+    }
+
+    if (dirInfo.isHidden())
+    {
+        result.errorMessage = "Error: program can not working to hide files/folders. '" + path + "' has attribute hide'";
+        return result;
+    }
+
+    if (isProtectedSystemPath(dirInfo))
+    {
+        result.errorMessage = "Error: system folders are not allowed: " + path;
+        return result;
+    }
+
+    const QString rootPath = QDir(path).absolutePath();
+
+    QDirIterator it(path, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+
+    while (it.hasNext())
+    {
+        it.next();
+        QFileInfo entry = it.fileInfo();
+
+        if (entry.isSymLink())
+            continue;
+
+        if (entry.isHidden())
+            continue;
+
+        if (isProtectedSystemPath(entry))
+            continue;
+
+        FileItem item;
+        item.filePath = entry.absoluteFilePath();
+        item.fileName = entry.fileName();
+        item.relativePath = QDir(rootPath).relativeFilePath(entry.absoluteFilePath());
+        item.size = entry.size();
+
+        result.items.append(item);
+    }
+
+    result.success = true;
+    return result;
+}
+
 BatchResult CryptoManager::processFolder(const QString& folderPath,const QString& password,bool encryptMode)
 {
     BatchResult batchResult;
@@ -464,7 +530,7 @@ BatchResult CryptoManager::processFolder(const QString& folderPath,const QString
         return batchResult;
     }
 
-    ScanResult scanResult = crawler.scanFolder(folderPath);
+    ScanResult scanResult = scanFolder(folderPath);
 
     if (!scanResult.success) {
         batchResult.success = false;

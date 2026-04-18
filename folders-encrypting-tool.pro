@@ -8,7 +8,6 @@ CONFIG += c++17 cmdline
 
 SOURCES += \
         cryptomanager.cpp \
-        filecrawler.cpp \
         main.cpp \
         pathutils.cpp \
         unixutils.cpp \
@@ -22,11 +21,8 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 HEADERS += \
     batchresult.h \
     cryptomanager.h \
-    filecrawler.h \
-    fileitem.h \
     fileresult.h \
     pathutils.h \
-    scanresult.h \
     unixutils.h \
     windowsutils.h
 

@@ -1,13 +1,13 @@
 #ifndef CRYPTOMANAGER_H
 #define CRYPTOMANAGER_H
 
-#include "filecrawler.h"
 #include "batchresult.h"
 #include "fileresult.h"
 #include <cryptlib.h>
 #include <aes.h>
 #include <QString>
 #include <QByteArray>
+#include <QList>
 
 class CryptoManager
 {
@@ -21,6 +21,21 @@ public:
     BatchResult decryptFolder(const QString& folderPath, const QString& password);
 
 private:
+    struct FileItem
+    {
+        QString filePath;
+        QString fileName;
+        QString relativePath;
+        qint64 size = 0;
+    };
+
+    struct ScanResult
+    {
+        bool success = false;
+        QString errorMessage;
+        QList<FileItem> items;
+    };
+
     CryptoManager();
     ~CryptoManager();
 
@@ -30,6 +45,7 @@ private:
     CryptoManager& operator=(CryptoManager&&) = delete;
 
     BatchResult processFolder(const QString& folderPath,const QString& password,bool encryptMode);
+    ScanResult scanFolder(const QString& path) const;
     bool isPasswordValid(const QString& password, QString& errorMessage) const;
     bool hasEncryptionSignature(const QString& filePath) const;
 
@@ -42,7 +58,6 @@ private:
     static const int IV_SIZE = 12;
     static const int TAG_SIZE = 16;
     static const int MAX_PASSWORD_LENGTH = 64;
-    FileCrawler crawler;
 };
 
 #endif // CRYPTOMANAGER_H
