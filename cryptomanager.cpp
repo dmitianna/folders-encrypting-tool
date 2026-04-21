@@ -520,11 +520,7 @@ CryptoManager::ScanResult CryptoManager::scanFolder(const QString& path) const
         if (isProtectedSystemPath(entry))
             continue;
 
-        FileItem item;
-        item.filePath = entry.absoluteFilePath();
-        item.size = entry.size();
-
-        result.items.append(item);
+        result.files.append(entry.absoluteFilePath());
     }
 
     result.success = true;
@@ -551,23 +547,22 @@ BatchResult CryptoManager::processFolder(const QString& folderPath,const QString
         return batchResult;
     }
 
-    batchResult.totalFiles = scanResult.items.size();
-    const QList<FileItem>& items = scanResult.items;
-    const int count = items.size();
+    batchResult.totalFiles = scanResult.files.size();
+    const QStringList& files = scanResult.files;
 
-    for (int i = 0; i < count; ++i)
+
+    for (const QString& filePath : files)
     {
-        const FileItem& item = items[i];
 
         FileResult fileResult;
 
         if (shouldEncrypt)
         {
-            fileResult = encryptFile(item.filePath, password);
+            fileResult = encryptFile(filePath, password);
         }
         else
         {
-            fileResult = decryptFile(item.filePath, password);
+            fileResult = decryptFile(filePath, password);
         }
 
         if (fileResult.success)
@@ -579,7 +574,7 @@ BatchResult CryptoManager::processFolder(const QString& folderPath,const QString
         {
             batchResult.skippedFiles++;
 
-            QString message = item.filePath;
+            QString message = filePath;
             if (!fileResult.errorMessage.isEmpty())
                 message += " : " + fileResult.errorMessage;
 
@@ -588,7 +583,12 @@ BatchResult CryptoManager::processFolder(const QString& folderPath,const QString
         else
         {
             batchResult.failedFiles++;
-            batchResult.errors.append(item.filePath + " : " + fileResult.errorMessage);
+
+            QString message = filePath;
+            if (!fileResult.errorMessage.isEmpty())
+                message += " : " + fileResult.errorMessage;
+
+            batchResult.errors.append(message);
         }
     }
 

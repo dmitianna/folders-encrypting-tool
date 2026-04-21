@@ -37,17 +37,11 @@ public:
     BatchResult decryptFolder(const QString& folderPath, const QString& password);
 
 private:
-    struct FileItem
-    {
-        QString filePath;
-        qint64 size = 0;
-    };
-
     struct ScanResult
     {
         bool success = false;
         QString errorMessage;
-        QList<FileItem> items;
+        QStringList files;
     };
 
     CryptoManager();
