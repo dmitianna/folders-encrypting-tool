@@ -67,6 +67,13 @@ void printBatchResult(const BatchResult& result)
     out << "Failed: " << result.failedFiles << "\n";
     out << "Bytes processed: " << result.totalBytesProcessed << "\n";
 
+    if (!result.skippedMessages.isEmpty())
+    {
+        out << "\nSkipped files:\n";
+        for (const QString& message : result.skippedMessages)
+            out << "  - " << message << "\n";
+    }
+
     if (!result.errors.isEmpty())
     {
         out << "Errors:\n";

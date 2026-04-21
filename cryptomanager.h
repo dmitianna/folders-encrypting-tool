@@ -17,6 +17,7 @@ struct BatchResult
     int failedFiles = 0;
     qint64 totalBytesProcessed = 0;
     QStringList errors;
+    QStringList skippedMessages;
 };
 
 struct FileResult
@@ -39,8 +40,6 @@ private:
     struct FileItem
     {
         QString filePath;
-        QString fileName;
-        QString relativePath;
         qint64 size = 0;
     };
 

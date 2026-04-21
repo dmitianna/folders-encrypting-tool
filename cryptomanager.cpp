@@ -522,8 +522,6 @@ CryptoManager::ScanResult CryptoManager::scanFolder(const QString& path) const
 
         FileItem item;
         item.filePath = entry.absoluteFilePath();
-        item.fileName = entry.fileName();
-        item.relativePath = QDir(rootPath).relativeFilePath(entry.absoluteFilePath());
         item.size = entry.size();
 
         result.items.append(item);
@@ -580,6 +578,12 @@ BatchResult CryptoManager::processFolder(const QString& folderPath,const QString
         else if (fileResult.skipped)
         {
             batchResult.skippedFiles++;
+
+            QString message = item.filePath;
+            if (!fileResult.errorMessage.isEmpty())
+                message += " : " + fileResult.errorMessage;
+
+            batchResult.skippedMessages.append(message);
         }
         else
         {
