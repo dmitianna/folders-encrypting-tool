@@ -59,7 +59,7 @@ private:
     CryptoManager(CryptoManager&&) = delete;
     CryptoManager& operator=(CryptoManager&&) = delete;
 
-    BatchResult processFolder(const QString& folderPath,const QString& password,bool encryptMode);
+    BatchResult processFolder(const QString& folderPath,const QString& password,bool shouldEncrypt);
     ScanResult scanFolder(const QString& path) const;
     bool isPasswordValid(const QString& password, QString& errorMessage) const;
     bool hasEncryptionSignature(const QString& filePath) const;

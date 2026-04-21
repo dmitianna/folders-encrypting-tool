@@ -8,10 +8,7 @@ CONFIG += c++17 cmdline
 
 SOURCES += \
         cryptomanager.cpp \
-        main.cpp \
-        pathutils.cpp \
-        unixutils.cpp \
-        windowsutils.cpp
+        main.cpp
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -19,10 +16,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 HEADERS += \
-    cryptomanager.h \
-    pathutils.h \
-    unixutils.h \
-    windowsutils.h
+    cryptomanager.h
 
 INCLUDEPATH += $$PWD/third_party/cryptopp/include
 LIBS += -L$$PWD/third_party/cryptopp/lib -lcryptopp

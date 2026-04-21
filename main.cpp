@@ -9,10 +9,10 @@ QTextStream out(stdout);
 
 void printHelp()
 {
-    out << "Utility for encryption and decryption of files and folders\n";
+    out << "Utility for encryption and decryption of folders\n";
     out << "Available commands:\n";
-    out << "  encrypt  - encrypt file or folder\n";
-    out << "  decrypt  - decrypt file or folder\n";
+    out << "  encrypt  - encrypt folder\n";
+    out << "  decrypt  - decrypt folder\n";
     out << "  exit     - exit program\n\n";
 
     out << "Tip: You can type 'exit' at any time to leave the program.\n";
@@ -52,26 +52,6 @@ QString readNonEmptyLine(const QString& prompt)
         out << "Input must not be empty.\n";
         out.flush();
     }
-}
-
-void printFileResult(const FileResult& result)
-{
-    if (result.success)
-        out << "Success: true\n";
-    else
-        out << "Success: false\n";
-
-    if (result.skipped)
-        out << "Skipped: true\n";
-    else
-        out << "Skipped: false\n";
-
-    out << "Bytes processed: " << result.bytesProcessed << "\n";
-
-    if (!result.errorMessage.isEmpty())
-        out << "Message: " << result.errorMessage << "\n";
-
-    out.flush();
 }
 
 void printBatchResult(const BatchResult& result)
@@ -122,7 +102,7 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        QString path = readNonEmptyLine("Enter file or folder path: ");
+        QString path = readNonEmptyLine("Enter folder path: ");
 
         QFileInfo info(path);
 
@@ -132,38 +112,25 @@ int main(int argc, char *argv[])
             out.flush();
             continue;
         }
+
+        if (!info.isDir())
+        {
+            out << "Error: specified path is not a folder.\n\n";
+            out.flush();
+            continue;
+        }
+
         QString password = readNonEmptyLine("Enter password: ");
         CryptoManager& manager = CryptoManager::instance();
+        BatchResult result;
 
-        if (info.isFile())
-        {
-            FileResult result;
+        if (command == "encrypt")
+            result = manager.encryptFolder(path, password);
+        else
+            result = manager.decryptFolder(path, password);
 
-            if (command == "encrypt")
-                result = manager.encryptFile(path, password);
-            else
-                result = manager.decryptFile(path, password);
-
-            printFileResult(result);
-            out << "\n";
-            continue;
-        }
-
-        if (info.isDir())
-        {
-            BatchResult result;
-
-            if (command == "encrypt")
-                result = manager.encryptFolder(path, password);
-            else
-                result = manager.decryptFolder(path, password);
-
-            printBatchResult(result);
-            out << "\n";
-            continue;
-        }
-
-        out << "Error: specified path is neither a file nor a folder.\n\n";
+        printBatchResult(result);
+        out << "\n";
         out.flush();
     }
 

@@ -13,11 +13,80 @@
 #include <sha.h>
 #include <pwdbased.h>
 
-#include "pathutils.h"
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
 
 using namespace CryptoPP;
-const int MAX_PASSWORD_LENGTH = 64;
+
+namespace
+{
+#ifdef Q_OS_WIN
+
+bool hasWindowsSystemAttribute(const QString& absolutePath)
+{
+    const std::wstring nativePath = absolutePath.toStdWString();
+    DWORD attrs = GetFileAttributesW(nativePath.c_str());
+
+    if (attrs == INVALID_FILE_ATTRIBUTES)
+        return false;
+
+    return (attrs & FILE_ATTRIBUTE_SYSTEM) != 0;
+}
+
+bool isUnixSystemPath(const QString&)
+{
+    return false;
+}
+
+#elif defined(Q_OS_UNIX)
+
+bool hasWindowsSystemAttribute(const QString&)
+{
+    return false;
+}
+
+bool isUnixSystemPath(const QString& absolutePath)
+{
+    return absolutePath == "/bin"   || absolutePath.startsWith("/bin/")   ||
+           absolutePath == "/boot"  || absolutePath.startsWith("/boot/")  ||
+           absolutePath == "/dev"   || absolutePath.startsWith("/dev/")   ||
+           absolutePath == "/etc"   || absolutePath.startsWith("/etc/")   ||
+           absolutePath == "/lib"   || absolutePath.startsWith("/lib/")   ||
+           absolutePath == "/lib64" || absolutePath.startsWith("/lib64/") ||
+           absolutePath == "/proc"  || absolutePath.startsWith("/proc/")  ||
+           absolutePath == "/root"  || absolutePath.startsWith("/root/")  ||
+           absolutePath == "/run"   || absolutePath.startsWith("/run/")   ||
+           absolutePath == "/sbin"  || absolutePath.startsWith("/sbin/")  ||
+           absolutePath == "/sys"   || absolutePath.startsWith("/sys/")   ||
+           absolutePath == "/usr"   || absolutePath.startsWith("/usr/")   ||
+           absolutePath == "/var"   || absolutePath.startsWith("/var/");
+}
+
+#else
+
+// fallback — НЕ ломаем компиляцию
+bool hasWindowsSystemAttribute(const QString&)
+{
+    return false;
+}
+
+bool isUnixSystemPath(const QString&)
+{
+    return false;
+}
+
+#endif
+
+bool isProtectedSystemPath(const QFileInfo& info)
+{
+    const QString absolutePath = info.absoluteFilePath();
+    return hasWindowsSystemAttribute(absolutePath) || isUnixSystemPath(absolutePath);
+}
+}
+
 const QByteArray CryptoManager::ENCRYPTION_SIGNATURE("\xDE\xAD\xBE\xEF\xCA\xFE\xBA\xBE", 8);
+
 
 CryptoManager::CryptoManager()
 {
@@ -95,19 +164,7 @@ bool CryptoManager::hasEncryptionSignature(const QString& filePath) const
 FileResult CryptoManager::encryptFile(const QString& path, const QString& password)
 {
     FileResult result;
-    if (path.trimmed().isEmpty()){
-        result.success = false;
-        result.errorMessage = "Path must not be empty.";
-        return result;
-    }
 
-    QString passwordError;
-    if (!isPasswordValid(password, passwordError))
-    {
-        result.errorMessage = passwordError;
-        return result;
-    }
-    //-------- для файлов -----------------------------------
     QFileInfo fileInfo(path);
     if (!fileInfo.exists())
     {
@@ -121,27 +178,13 @@ FileResult CryptoManager::encryptFile(const QString& path, const QString& passwo
         return result;
     }
 
-    if (isProtectedSystemPath(fileInfo))
-    {
-        result.skipped = true;
-        result.errorMessage = "System file is not allowed: " + path;
-        return result;
-    }
-
     if (!fileInfo.isReadable())
     {
         result.errorMessage = "File is not readable: " + path;
         return result;
     }
-    //---------для директорий------------------------------------------
-    QFileInfo dirInfo(fileInfo.absolutePath());
 
-    if (isProtectedSystemPath(dirInfo))
-    {
-        result.skipped = true;
-        result.errorMessage = "Target system directory is not allowed: " + fileInfo.absolutePath();
-        return result;
-    }
+    QFileInfo dirInfo(fileInfo.absolutePath());
 
     if (!dirInfo.isWritable())
     {
@@ -162,7 +205,6 @@ FileResult CryptoManager::encryptFile(const QString& path, const QString& passwo
         return result;
     }
 
-    //---------шифрование------------------------------------
     try
     {
         QFile inputFile(path);
@@ -262,19 +304,6 @@ FileResult CryptoManager::encryptFile(const QString& path, const QString& passwo
 FileResult CryptoManager::decryptFile(const QString& path, const QString& password)
 {
     FileResult result;
-    if (path.trimmed().isEmpty())
-    {
-        result.success = false;
-        result.errorMessage = "Path must not be empty.";
-        return result;
-    }
-
-    QString passwordError;
-    if (!isPasswordValid(password, passwordError))
-    {
-        result.errorMessage = passwordError;
-        return result;
-    }
     //-------------------------------------
     QFileInfo fileInfo(path);
 
@@ -287,13 +316,6 @@ FileResult CryptoManager::decryptFile(const QString& path, const QString& passwo
     if (!fileInfo.isFile())
     {
         result.errorMessage = "Path is not a regular file: " + path;
-        return result;
-    }
-
-    if (isProtectedSystemPath(fileInfo))
-    {
-        result.skipped = true;
-        result.errorMessage = "System file is not allowed: " + path;
         return result;
     }
 
@@ -311,13 +333,6 @@ FileResult CryptoManager::decryptFile(const QString& path, const QString& passwo
     //-----------------------------------------------
 
     QFileInfo dirInfo(fileInfo.absolutePath());
-
-    if (isProtectedSystemPath(dirInfo))
-    {
-        result.skipped = true;
-        result.errorMessage = "Target system directory is not allowed: " + fileInfo.absolutePath();
-        return result;
-    }
 
     if (!dirInfo.isWritable())
     {
@@ -477,7 +492,7 @@ CryptoManager::ScanResult CryptoManager::scanFolder(const QString& path) const
 
     if (dirInfo.isHidden())
     {
-        result.errorMessage = "Error: program can not working to hide files/folders. '" + path + "' has attribute hide'";
+        result.errorMessage = "Error: hidden folders are not allowed: " + path;
         return result;
     }
 
@@ -518,7 +533,7 @@ CryptoManager::ScanResult CryptoManager::scanFolder(const QString& path) const
     return result;
 }
 
-BatchResult CryptoManager::processFolder(const QString& folderPath,const QString& password,bool isneedtoEncrypt)
+BatchResult CryptoManager::processFolder(const QString& folderPath,const QString& password,bool shouldEncrypt)
 {
     BatchResult batchResult;
     QString passwordError;
@@ -548,7 +563,7 @@ BatchResult CryptoManager::processFolder(const QString& folderPath,const QString
 
         FileResult fileResult;
 
-        if (isneedtoEncrypt)
+        if (shouldEncrypt)
         {
             fileResult = encryptFile(item.filePath, password);
         }
