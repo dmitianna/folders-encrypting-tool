@@ -188,7 +188,7 @@ bool CryptoManager::hasEncryptionSignature(const QString& filePath) const
     return signature == ENCRYPTION_SIGNATURE;
 }
 
-FileResult CryptoManager::encryptFile(const QString& path, const QString& password)
+CryptoManager::FileResult CryptoManager::encryptFile(const QString& path, const QString& password)
 {
     FileResult result;
 
@@ -302,7 +302,7 @@ FileResult CryptoManager::encryptFile(const QString& path, const QString& passwo
     }
 }
 
-FileResult CryptoManager::decryptFile(const QString& path, const QString& password)
+CryptoManager::FileResult CryptoManager::decryptFile(const QString& path, const QString& password)
 {
     FileResult result;
     QString errorMessage;

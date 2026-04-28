@@ -8,6 +8,7 @@
 #include <QList>
 #include <QStringList>
 
+
 struct BatchResult
 {
     bool success = false;
@@ -22,18 +23,17 @@ struct BatchResult
     QStringList ignoredMessages;
 };
 
-struct FileResult
-{
-    bool success = false;
-    bool skipped = false;
-    QString errorMessage;
-    qint64 bytesProcessed = 0;
-};
-
 class CryptoManager
 {
 public:
     static CryptoManager& instance();
+    struct FileResult
+    {
+        bool success = false;
+        bool skipped = false;
+        QString errorMessage;
+        qint64 bytesProcessed = 0;
+    };
 
     BatchResult encryptFolder(const QString& folderPath, const QString& password);
     BatchResult decryptFolder(const QString& folderPath, const QString& password);
@@ -47,6 +47,7 @@ private:
         int ignoredFiles = 0;
         QStringList ignoredMessages;
     };
+
 
     CryptoManager()= default;
     ~CryptoManager() = default;
