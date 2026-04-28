@@ -4,6 +4,7 @@
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QDir>
+#include <QDirIterator>
 
 #include <files.h>
 #include <filters.h>
@@ -12,45 +13,140 @@
 #include <sha.h>
 #include <pwdbased.h>
 
-#include "scanresult.h"
-#include "fileitem.h"
-#include "pathutils.h"
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
 
 using namespace CryptoPP;
-const int MAX_PASSWORD_LENGTH = 64;
+
+namespace
+{
+#ifdef Q_OS_WIN
+
+bool hasWindowsSystemAttribute(const QString& absolutePath)
+{
+    const std::wstring nativePath = absolutePath.toStdWString();
+    DWORD attrs = GetFileAttributesW(nativePath.c_str());
+
+    if (attrs == INVALID_FILE_ATTRIBUTES)
+        return false;
+
+    return (attrs & FILE_ATTRIBUTE_SYSTEM) != 0;
+}
+
+bool isUnixSystemPath(const QString&)
+{
+    return false;
+}
+
+#elif defined(Q_OS_UNIX)
+
+bool hasWindowsSystemAttribute(const QString&)
+{
+    return false;
+}
+
+bool isUnixSystemPath(const QString& absolutePath)
+{
+    return absolutePath == "/bin"   || absolutePath.startsWith("/bin/")   ||
+           absolutePath == "/boot"  || absolutePath.startsWith("/boot/")  ||
+           absolutePath == "/dev"   || absolutePath.startsWith("/dev/")   ||
+           absolutePath == "/etc"   || absolutePath.startsWith("/etc/")   ||
+           absolutePath == "/lib"   || absolutePath.startsWith("/lib/")   ||
+           absolutePath == "/lib64" || absolutePath.startsWith("/lib64/") ||
+           absolutePath == "/proc"  || absolutePath.startsWith("/proc/")  ||
+           absolutePath == "/root"  || absolutePath.startsWith("/root/")  ||
+           absolutePath == "/run"   || absolutePath.startsWith("/run/")   ||
+           absolutePath == "/sbin"  || absolutePath.startsWith("/sbin/")  ||
+           absolutePath == "/sys"   || absolutePath.startsWith("/sys/")   ||
+           absolutePath == "/usr"   || absolutePath.startsWith("/usr/")   ||
+           absolutePath == "/var"   || absolutePath.startsWith("/var/");
+}
+
+#else
+bool hasWindowsSystemAttribute(const QString&)
+{
+    return false;
+}
+
+bool isUnixSystemPath(const QString&)
+{
+    return false;
+}
+
+#endif
+
+bool isProtectedSystemPath(const QFileInfo& info)
+{
+    const QString absolutePath = info.absoluteFilePath();
+    return hasWindowsSystemAttribute(absolutePath) || isUnixSystemPath(absolutePath);
+}
+}
+
 const QByteArray CryptoManager::ENCRYPTION_SIGNATURE("\xDE\xAD\xBE\xEF\xCA\xFE\xBA\xBE", 8);
-
-CryptoManager::CryptoManager()
-{
-}
-
-CryptoManager::~CryptoManager()
-{
-}
 
 CryptoManager& CryptoManager::instance()
 {
     static CryptoManager instance;
     return instance;
 }
-//-------------------------------------------
+
 bool CryptoManager::isPasswordValid(const QString& password, QString& errorMessage) const
 {
     if (password.trimmed().isEmpty())
     {
-        errorMessage = "Password must not be empty.";
+        errorMessage = "Password must not be empty";
         return false;
     }
 
     if (password.length() > MAX_PASSWORD_LENGTH)
     {
-        errorMessage = "Password's length can not be more than 64 characters.";
+        errorMessage = "Password's length can not be more than 64 characters";
         return false;
     }
 
     return true;
 }
-//-------------------------------------------
+
+bool CryptoManager::validateFileForProcessing(const QString& path, QString& errorMessage) const
+{
+    QFileInfo fileInfo(path);
+
+    if (!fileInfo.exists())
+    {
+        errorMessage = "File does not exist";
+        return false;
+    }
+
+    if (!fileInfo.isFile())
+    {
+        errorMessage = "Path is not a regular file";
+        return false;
+    }
+
+    if (!fileInfo.isReadable())
+    {
+        errorMessage = "File is not readable";
+        return false;
+    }
+
+    QFileInfo dirInfo(fileInfo.absolutePath());
+
+    if (!dirInfo.isWritable())
+    {
+        errorMessage = "Target directory is not writable";
+        return false;
+    }
+
+    if (!fileInfo.isWritable())
+    {
+        errorMessage = "File is not writable";
+        return false;
+    }
+
+    return true;
+}
+
 SecByteBlock CryptoManager::generateSalt(size_t size) const
 {
     AutoSeededRandomPool rng;
@@ -92,84 +188,30 @@ bool CryptoManager::hasEncryptionSignature(const QString& filePath) const
     return signature == ENCRYPTION_SIGNATURE;
 }
 
-//-------------------------------------------
-FileResult CryptoManager::encryptFile(const QString& path, const QString& password)
+CryptoManager::FileResult CryptoManager::encryptFile(const QString& path, const QString& password)
 {
     FileResult result;
-    if (path.trimmed().isEmpty()){
-        result.success = false;
-        result.errorMessage = "Path must not be empty.";
-        return result;
-    }
 
-    QString passwordError;
-    if (!isPasswordValid(password, passwordError))
+    QString errorMessage;
+    if (!validateFileForProcessing(path, errorMessage))
     {
-        result.errorMessage = passwordError;
-        return result;
-    }
-    //-------- для файлов -----------------------------------
-    QFileInfo fileInfo(path);
-    if (!fileInfo.exists())
-    {
-        result.errorMessage = "File does not exist: " + path;
-        return result;
-    }
-
-    if (!fileInfo.isFile())
-    {
-        result.errorMessage = "Path is not a regular file: " + path;
-        return result;
-    }
-
-    if (isProtectedSystemPath(fileInfo))
-    {
-        result.skipped = true;
-        result.errorMessage = "System file is not allowed: " + path;
-        return result;
-    }
-
-    if (!fileInfo.isReadable())
-    {
-        result.errorMessage = "File is not readable: " + path;
-        return result;
-    }
-    //---------для директорий------------------------------------------
-    QFileInfo dirInfo(fileInfo.absolutePath());
-
-    if (isProtectedSystemPath(dirInfo))
-    {
-        result.skipped = true;
-        result.errorMessage = "Target system directory is not allowed: " + fileInfo.absolutePath();
-        return result;
-    }
-
-    if (!dirInfo.isWritable())
-    {
-        result.errorMessage = "Target directory is not writable: " + fileInfo.absolutePath();
-        return result;
-    }
-
-    if (!fileInfo.isWritable())
-    {
-        result.errorMessage = "File is not writable: " + path;
+        result.errorMessage = errorMessage;
         return result;
     }
 
     if (hasEncryptionSignature(path))
     {
         result.skipped = true;
-        result.errorMessage = "File is already encrypted.";
+        result.errorMessage = "File is already encrypted";
         return result;
     }
 
-    //---------шифрование------------------------------------
     try
     {
         QFile inputFile(path);
         if (!inputFile.open(QIODevice::ReadOnly))
         {
-            result.errorMessage = "Failed to open input file: " + path;
+            result.errorMessage = "Failed to open input file";
             return result;
         }
 
@@ -201,28 +243,28 @@ FileResult CryptoManager::encryptFile(const QString& path, const QString& passwo
         QSaveFile outputFile(path);
         if (!outputFile.open(QIODevice::WriteOnly))
         {
-            result.errorMessage = "Failed to open output file for write: " + path;
+            result.errorMessage = "Failed to open output file for write";
             return result;
         }
 
         if (outputFile.write(ENCRYPTION_SIGNATURE) != ENCRYPTION_SIGNATURE.size())
         {
             outputFile.cancelWriting();
-            result.errorMessage = "Failed to write file signature.";
+            result.errorMessage = "Failed to write file signature";
             return result;
         }
 
         if (outputFile.write(reinterpret_cast<const char*>(salt.data()), SALT_SIZE) != SALT_SIZE)
         {
             outputFile.cancelWriting();
-            result.errorMessage = "Failed to write salt.";
+            result.errorMessage = "Failed to write salt";
             return result;
         }
 
         if (outputFile.write(reinterpret_cast<const char*>(iv.data()), IV_SIZE) != IV_SIZE)
         {
             outputFile.cancelWriting();
-            result.errorMessage = "Failed to write IV.";
+            result.errorMessage = "Failed to write IV";
             return result;
         }
 
@@ -233,14 +275,14 @@ FileResult CryptoManager::encryptFile(const QString& path, const QString& passwo
             if (written != static_cast<qint64>(encryptedData.size()))
             {
                 outputFile.cancelWriting();
-                result.errorMessage = "Failed to write encrypted data.";
+                result.errorMessage = "Failed to write encrypted data";
                 return result;
             }
         }
 
         if (!outputFile.commit())
         {
-            result.errorMessage = "Failed to replace original file.";
+            result.errorMessage = "Failed to replace original file";
             return result;
         }
 
@@ -260,85 +302,28 @@ FileResult CryptoManager::encryptFile(const QString& path, const QString& passwo
     }
 }
 
-FileResult CryptoManager::decryptFile(const QString& path, const QString& password)
+CryptoManager::FileResult CryptoManager::decryptFile(const QString& path, const QString& password)
 {
     FileResult result;
-    if (path.trimmed().isEmpty())
+    QString errorMessage;
+    if (!validateFileForProcessing(path, errorMessage))
     {
-        result.success = false;
-        result.errorMessage = "Path must not be empty.";
-        return result;
-    }
-
-    QString passwordError;
-    if (!isPasswordValid(password, passwordError))
-    {
-        result.errorMessage = passwordError;
-        return result;
-    }
-    //-------------------------------------
-    QFileInfo fileInfo(path);
-
-    if (!fileInfo.exists())
-    {
-        result.errorMessage = "File does not exist: " + path;
-        return result;
-    }
-
-    if (!fileInfo.isFile())
-    {
-        result.errorMessage = "Path is not a regular file: " + path;
-        return result;
-    }
-
-    if (isProtectedSystemPath(fileInfo))
-    {
-        result.skipped = true;
-        result.errorMessage = "System file is not allowed: " + path;
-        return result;
-    }
-
-    if (!fileInfo.isReadable())
-    {
-        result.errorMessage = "File is not readable: " + path;
-        return result;
-    }
-
-    if (!fileInfo.isWritable())
-    {
-        result.errorMessage = "File is not writable: " + path;
-        return result;
-    }
-    //-----------------------------------------------
-
-    QFileInfo dirInfo(fileInfo.absolutePath());
-
-    if (isProtectedSystemPath(dirInfo))
-    {
-        result.skipped = true;
-        result.errorMessage = "Target system directory is not allowed: " + fileInfo.absolutePath();
-        return result;
-    }
-
-    if (!dirInfo.isWritable())
-    {
-        result.errorMessage = "Target directory is not writable: " + fileInfo.absolutePath();
+        result.errorMessage = errorMessage;
         return result;
     }
 
     if (!hasEncryptionSignature(path))
     {
         result.skipped = true;
-        result.errorMessage = "File is not encrypted.";
+        result.errorMessage = "File is not encrypted";
         return result;
     }
-    //-----------------------------------------------
     try
     {
         QFile inputFile(path);
         if (!inputFile.open(QIODevice::ReadOnly))
         {
-            result.errorMessage = "Failed to open encrypted file: " + path;
+            result.errorMessage = "Failed to open encrypted file";
             return result;
         }
 
@@ -346,7 +331,7 @@ FileResult CryptoManager::decryptFile(const QString& path, const QString& passwo
         if (inputFile.size() < minSize)
         {
             inputFile.close();
-            result.errorMessage = "Invalid encrypted file format.";
+            result.errorMessage = "Invalid encrypted file format";
             return result;
         }
 
@@ -354,7 +339,7 @@ FileResult CryptoManager::decryptFile(const QString& path, const QString& passwo
         if (signature != ENCRYPTION_SIGNATURE)
         {
             inputFile.close();
-            result.errorMessage = "Invalid file signature.";
+            result.errorMessage = "Invalid file signature";
             return result;
         }
 
@@ -362,7 +347,7 @@ FileResult CryptoManager::decryptFile(const QString& path, const QString& passwo
         if (saltBytes.size() != SALT_SIZE)
         {
             inputFile.close();
-            result.errorMessage = "Failed to read salt.";
+            result.errorMessage = "Failed to read salt";
             return result;
         }
 
@@ -370,7 +355,7 @@ FileResult CryptoManager::decryptFile(const QString& path, const QString& passwo
         if (ivBytes.size() != IV_SIZE)
         {
             inputFile.close();
-            result.errorMessage = "Failed to read IV.";
+            result.errorMessage = "Failed to read IV";
             return result;
         }
 
@@ -379,7 +364,7 @@ FileResult CryptoManager::decryptFile(const QString& path, const QString& passwo
 
         if (encryptedData.size() < TAG_SIZE)
         {
-            result.errorMessage = "Encrypted payload is too small.";
+            result.errorMessage = "Encrypted payload is too small";
             return result;
         }
 
@@ -399,7 +384,7 @@ FileResult CryptoManager::decryptFile(const QString& path, const QString& passwo
         QSaveFile outputFile(path);
         if (!outputFile.open(QIODevice::WriteOnly))
         {
-            result.errorMessage = "Failed to open output file for atomic write: " + path;
+            result.errorMessage = "Failed to open output file for atomic write";
             return result;
         }
 
@@ -410,14 +395,14 @@ FileResult CryptoManager::decryptFile(const QString& path, const QString& passwo
             if (written != static_cast<qint64>(plainText.size()))
             {
                 outputFile.cancelWriting();
-                result.errorMessage = "Failed to write decrypted data.";
+                result.errorMessage = "Failed to write decrypted data";
                 return result;
             }
         }
 
         if (!outputFile.commit())
         {
-            result.errorMessage = "Failed to replace encrypted file atomically.";
+            result.errorMessage = "Failed to replace encrypted file atomically";
             return result;
         }
 
@@ -427,7 +412,7 @@ FileResult CryptoManager::decryptFile(const QString& path, const QString& passwo
     }
     catch (const HashVerificationFilter::HashVerificationFailed&)
     {
-        result.errorMessage = "Invalid password or corrupted encrypted file.";
+        result.errorMessage = "Invalid password or corrupted encrypted file";
         return result;
     }
     catch (const Exception& e)
@@ -452,9 +437,90 @@ BatchResult CryptoManager::decryptFolder(const QString& folderPath, const QStrin
     return processFolder(folderPath, password, false);
 }
 
-BatchResult CryptoManager::processFolder(const QString& folderPath,const QString& password,bool encryptMode)
+CryptoManager::ScanResult CryptoManager::scanFolder(const QString& path) const
+{
+    ScanResult result;
+    result.success = false;
+
+    QFileInfo dirInfo(path);
+    if (!dirInfo.exists())
+    {
+        result.errorMessage = "Folder does not exist: " + path;
+        return result;
+    }
+
+    if (!dirInfo.isDir())
+    {
+        result.errorMessage = "Path is not a folder: " + path;
+        return result;
+    }
+
+    if (!dirInfo.isReadable())
+    {
+        result.errorMessage = "Folder is not readable: " + path;
+        return result;
+    }
+
+    if (dirInfo.isHidden())
+    {
+        result.errorMessage = "Hidden folders are not allowed: " + path;
+        return result;
+    }
+
+    if (isProtectedSystemPath(dirInfo))
+    {
+        result.errorMessage = "System folders are not allowed: " + path;
+        return result;
+    }
+
+
+    QDirIterator it(path, QDir::Files | QDir::Hidden | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+
+    while (it.hasNext())
+    {
+        it.next();
+        QFileInfo entry = it.fileInfo();
+
+        if (entry.isSymLink())
+        {
+            result.ignoredFiles++;
+            result.ignoredMessages.append(entry.absoluteFilePath() + " : symbolic link");
+            continue;
+        }
+
+
+        if (entry.isHidden())
+        {
+            result.ignoredFiles++;
+            result.ignoredMessages.append(entry.absoluteFilePath() + " : hidden file");
+            continue;
+        }
+
+        if (isProtectedSystemPath(entry))
+        {
+            result.ignoredFiles++;
+            result.ignoredMessages.append(entry.absoluteFilePath() + " : system file");
+            continue;
+        }
+        result.files.append(entry.absoluteFilePath());
+    }
+
+    result.success = true;
+    return result;
+}
+
+BatchResult CryptoManager::processFolder(const QString& folderPath,const QString& password,bool shouldEncrypt)
 {
     BatchResult batchResult;
+
+    ScanResult scanResult = scanFolder(folderPath);
+
+    if (!scanResult.success) {
+        batchResult.success = false;
+        batchResult.errors.append(scanResult.errorMessage);
+        return batchResult;
+    }
+
     QString passwordError;
 
     if (!isPasswordValid(password, passwordError))
@@ -464,31 +530,24 @@ BatchResult CryptoManager::processFolder(const QString& folderPath,const QString
         return batchResult;
     }
 
-    ScanResult scanResult = crawler.scanFolder(folderPath);
+    batchResult.totalFiles = scanResult.files.size() + scanResult.ignoredFiles;
+    batchResult.ignoredFiles = scanResult.ignoredFiles;
+    batchResult.ignoredMessages = scanResult.ignoredMessages;
+    const QStringList& files = scanResult.files;
 
-    if (!scanResult.success) {
-        batchResult.success = false;
-        batchResult.errors.append(scanResult.errorMessage);
-        return batchResult;
-    }
 
-    batchResult.totalFiles = scanResult.items.size();
-    const QList<FileItem>& items = scanResult.items;
-    const int count = items.size();
-
-    for (int i = 0; i < count; ++i)
+    for (const QString& filePath : files)
     {
-        const FileItem& item = items[i];
 
         FileResult fileResult;
 
-        if (encryptMode)
+        if (shouldEncrypt)
         {
-            fileResult = encryptFile(item.filePath, password);
+            fileResult = encryptFile(filePath, password);
         }
         else
         {
-            fileResult = decryptFile(item.filePath, password);
+            fileResult = decryptFile(filePath, password);
         }
 
         if (fileResult.success)
@@ -499,11 +558,22 @@ BatchResult CryptoManager::processFolder(const QString& folderPath,const QString
         else if (fileResult.skipped)
         {
             batchResult.skippedFiles++;
+
+            QString message = filePath;
+            if (!fileResult.errorMessage.isEmpty())
+                message += " : " + fileResult.errorMessage;
+
+            batchResult.skippedMessages.append(message);
         }
         else
         {
             batchResult.failedFiles++;
-            batchResult.errors.append(item.filePath + " : " + fileResult.errorMessage);
+
+            QString message = filePath;
+            if (!fileResult.errorMessage.isEmpty())
+                message += " : " + fileResult.errorMessage;
+
+            batchResult.errors.append(message);
         }
     }
 

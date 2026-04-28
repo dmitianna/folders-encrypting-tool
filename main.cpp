@@ -1,6 +1,5 @@
 #include <QCoreApplication>
 #include <QTextStream>
-#include <QFileInfo>
 
 #include "cryptomanager.h"
 
@@ -9,110 +8,93 @@ QTextStream out(stdout);
 
 void printHelp()
 {
-    out << "Utility for encryption and decryption of files and folders\n";
+    out << "Utility for encryption and decryption of folders\n";
     out << "Available commands:\n";
-    out << "  encrypt  - encrypt file or folder\n";
-    out << "  decrypt  - decrypt file or folder\n";
+    out << "  encrypt  - encrypt folder\n";
+    out << "  decrypt  - decrypt folder\n";
     out << "  exit     - exit program\n\n";
 
     out << "Tip: You can type 'exit' at any time to leave the program.\n";
     out << "Tip: If the password is lost, encrypted files cannot be recovered.\n\n";
 
     out << "Note: Due to technical limitations, hidden files and directories are not processed.\n";
-    out << "      Contents of hidden directories are also excluded from processing.\n\n";
 }
 
-QString readNonEmptyLine(const QString& prompt)
+QString normalizeInput(QString value)
 {
-    while (true)
+    value = value.trimmed();
+
+    if (value.length() >= 2 &&
+        ((value.startsWith('"') && value.endsWith('"')) ||
+         (value.startsWith('\'') && value.endsWith('\''))))
     {
-        out << prompt;
-        out.flush();
-
-        QString value = in.readLine().trimmed();
-
-        QString lower = value.toLower();
-
-        if (lower == "exit")
-        {
-            out << "Program finished.\n";
-            out.flush();
-            exit(0);
-        }
-
-        if ((value.startsWith('"') && value.endsWith('"')) ||
-            (value.startsWith('\'') && value.endsWith('\'')))
-        {
-            value = value.mid(1, value.length() - 2).trimmed();
-        }
-
-        if (!value.isEmpty())
-            return value;
-
-        out << "Input must not be empty.\n";
-        out.flush();
+        value = value.mid(1, value.length() - 2).trimmed();
     }
+
+    return value;
 }
 
-void printFileResult(const FileResult& result)
+QString readLine(const QString& prompt)
 {
-    if (result.success)
-        out << "Success: true\n";
-    else
-        out << "Success: false\n";
-
-    if (result.skipped)
-        out << "Skipped: true\n";
-    else
-        out << "Skipped: false\n";
-
-    out << "Bytes processed: " << result.bytesProcessed << "\n";
-
-    if (!result.errorMessage.isEmpty())
-        out << "Message: " << result.errorMessage << "\n";
-
+    out << prompt;
     out.flush();
+
+    return normalizeInput(in.readLine());
 }
 
 void printBatchResult(const BatchResult& result)
 {
-    if (result.success)
-        out << "Success: true\n";
-    else
-        out << "Success: false\n";
-
+    out << "Success: " << (result.success ? "true" : "false") << "\n";
     out << "Total files: " << result.totalFiles << "\n";
     out << "Processed: " << result.processedFiles << "\n";
     out << "Skipped: " << result.skippedFiles << "\n";
+    out << "Ignored: " << result.ignoredFiles << "\n";
     out << "Failed: " << result.failedFiles << "\n";
     out << "Bytes processed: " << result.totalBytesProcessed << "\n";
 
     if (!result.errors.isEmpty())
     {
         out << "Errors:\n";
-        for (int i = 0; i < result.errors.size(); ++i)
-            out << "  - " << result.errors[i] << "\n";
+        for (const QString& msg : result.errors)
+            out << "  - " << msg << "\n";
     }
 
-    out.flush();
-}
+    if (!result.skippedMessages.isEmpty())
+    {
+        out << "Skipped:\n";
+        for (const QString& msg : result.skippedMessages)
+            out << "  - " << msg << "\n";
+    }
 
+    if (!result.ignoredMessages.isEmpty())
+    {
+        out << "Ignored:\n";
+        for (const QString& msg : result.ignoredMessages)
+            out << "  - " << msg << "\n";
+    }
+
+    out << "\n";
+}
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
-
     printHelp();
-
     while (true)
     {
-        QString command = readNonEmptyLine("Enter command (encrypt/decrypt/exit): ");
-        command = command.toLower();
+        QString command = readLine("Enter command (encrypt/decrypt/exit): ").toLower();
 
         if (command == "exit")
         {
             out << "Program finished.\n";
             out.flush();
             return 0;
+        }
+
+        if (command.isEmpty())
+        {
+            out << "Input must not be empty.\n\n";
+            out.flush();
+            continue;
         }
 
         if (command != "encrypt" && command != "decrypt")
@@ -122,48 +104,47 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        QString path = readNonEmptyLine("Enter file or folder path: ");
+        QString path = readLine("Enter folder path: ");
 
-        QFileInfo info(path);
-
-        if (!info.exists())
+        if (path.compare("exit", Qt::CaseInsensitive) == 0)
         {
-            out << "Error: path does not exist: " << path << "\n\n";
+            out << "Program finished.\n";
+            out.flush();
+            return 0;
+        }
+
+        if (path.isEmpty())
+        {
+            out << "Input must not be empty. Operation canceled.\n\n";
             out.flush();
             continue;
         }
-        QString password = readNonEmptyLine("Enter password: ");
+
+        QString password = readLine("Enter password: ");
+
+        if (password.compare("exit", Qt::CaseInsensitive) == 0)
+        {
+            out << "Program finished.\n";
+            out.flush();
+            return 0;
+        }
+
+        if (password.isEmpty())
+        {
+            out << "Input must not be empty. Operation canceled.\n\n";
+            out.flush();
+            continue;
+        }
+
         CryptoManager& manager = CryptoManager::instance();
+        BatchResult result;
 
-        if (info.isFile())
-        {
-            FileResult result;
+        if (command == "encrypt")
+            result = manager.encryptFolder(path, password);
+        else
+            result = manager.decryptFolder(path, password);
 
-            if (command == "encrypt")
-                result = manager.encryptFile(path, password);
-            else
-                result = manager.decryptFile(path, password);
-
-            printFileResult(result);
-            out << "\n";
-            continue;
-        }
-
-        if (info.isDir())
-        {
-            BatchResult result;
-
-            if (command == "encrypt")
-                result = manager.encryptFolder(path, password);
-            else
-                result = manager.decryptFolder(path, password);
-
-            printBatchResult(result);
-            out << "\n";
-            continue;
-        }
-
-        out << "Error: specified path is neither a file nor a folder.\n\n";
+        printBatchResult(result);
         out.flush();
     }
 
