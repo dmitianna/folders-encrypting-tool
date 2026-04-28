@@ -1,6 +1,5 @@
 #include <QCoreApplication>
 #include <QTextStream>
-#include <QFileInfo>
 
 #include "cryptomanager.h"
 
@@ -56,34 +55,37 @@ QString readNonEmptyLine(const QString& prompt)
 
 void printBatchResult(const BatchResult& result)
 {
-    if (result.success)
-        out << "Success: true\n";
-    else
-        out << "Success: false\n";
-
+    out << "Success: " << (result.success ? "true" : "false") << "\n";
     out << "Total files: " << result.totalFiles << "\n";
     out << "Processed: " << result.processedFiles << "\n";
     out << "Skipped: " << result.skippedFiles << "\n";
+    out << "Ignored: " << result.ignoredFiles << "\n";
     out << "Failed: " << result.failedFiles << "\n";
     out << "Bytes processed: " << result.totalBytesProcessed << "\n";
-
-    if (!result.skippedMessages.isEmpty())
-    {
-        out << "\nSkipped files:\n";
-        for (const QString& message : result.skippedMessages)
-            out << "  - " << message << "\n";
-    }
 
     if (!result.errors.isEmpty())
     {
         out << "Errors:\n";
-        for (int i = 0; i < result.errors.size(); ++i)
-            out << "  - " << result.errors[i] << "\n";
+        for (const QString& msg : result.errors)
+            out << "  - " << msg << "\n";
     }
 
-    out.flush();
-}
+    if (!result.skippedMessages.isEmpty())
+    {
+        out << "Skipped:\n";
+        for (const QString& msg : result.skippedMessages)
+            out << "  - " << msg << "\n";
+    }
 
+    if (!result.ignoredMessages.isEmpty())
+    {
+        out << "Ignored:\n";
+        for (const QString& msg : result.ignoredMessages)
+            out << "  - " << msg << "\n";
+    }
+
+    out << "\n";
+}
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -110,23 +112,6 @@ int main(int argc, char *argv[])
         }
 
         QString path = readNonEmptyLine("Enter folder path: ");
-
-        QFileInfo info(path);
-
-        if (!info.exists())
-        {
-            out << "Error: path does not exist: " << path << "\n\n";
-            out.flush();
-            continue;
-        }
-
-        if (!info.isDir())
-        {
-            out << "Error: specified path is not a folder.\n\n";
-            out.flush();
-            continue;
-        }
-
         QString password = readNonEmptyLine("Enter password: ");
         CryptoManager& manager = CryptoManager::instance();
         BatchResult result;

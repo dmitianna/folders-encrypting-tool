@@ -14,10 +14,12 @@ struct BatchResult
     int totalFiles = 0;
     int processedFiles = 0;
     int skippedFiles = 0;
+    int ignoredFiles = 0;
     int failedFiles = 0;
     qint64 totalBytesProcessed = 0;
     QStringList errors;
     QStringList skippedMessages;
+    QStringList ignoredMessages;
 };
 
 struct FileResult
@@ -42,6 +44,8 @@ private:
         bool success = false;
         QString errorMessage;
         QStringList files;
+        int ignoredFiles = 0;
+        QStringList ignoredMessages;
     };
 
     CryptoManager();
@@ -55,6 +59,7 @@ private:
     BatchResult processFolder(const QString& folderPath,const QString& password,bool shouldEncrypt);
     ScanResult scanFolder(const QString& path) const;
     bool isPasswordValid(const QString& password, QString& errorMessage) const;
+    bool validateFileForProcessing(const QString& path, QString& errorMessage) const;
     bool hasEncryptionSignature(const QString& filePath) const;
 
     CryptoPP::SecByteBlock generateSalt(size_t size = SALT_SIZE) const;
