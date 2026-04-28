@@ -486,7 +486,7 @@ CryptoManager::ScanResult CryptoManager::scanFolder(const QString& path) const
     }
 
 
-    QDirIterator it(path, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+    QDirIterator it(path, QDir::Files | QDir::Hidden | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
 
     while (it.hasNext())
     {

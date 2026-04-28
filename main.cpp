@@ -18,39 +18,28 @@ void printHelp()
     out << "Tip: If the password is lost, encrypted files cannot be recovered.\n\n";
 
     out << "Note: Due to technical limitations, hidden files and directories are not processed.\n";
-    out << "      Contents of hidden directories are also excluded from processing.\n\n";
 }
 
-QString readNonEmptyLine(const QString& prompt)
+QString normalizeInput(QString value)
 {
-    while (true)
+    value = value.trimmed();
+
+    if (value.length() >= 2 &&
+        ((value.startsWith('"') && value.endsWith('"')) ||
+         (value.startsWith('\'') && value.endsWith('\''))))
     {
-        out << prompt;
-        out.flush();
-
-        QString value = in.readLine().trimmed();
-
-        QString lower = value.toLower();
-
-        if (lower == "exit")
-        {
-            out << "Program finished.\n";
-            out.flush();
-            exit(0);
-        }
-
-        if ((value.startsWith('"') && value.endsWith('"')) ||
-            (value.startsWith('\'') && value.endsWith('\'')))
-        {
-            value = value.mid(1, value.length() - 2).trimmed();
-        }
-
-        if (!value.isEmpty())
-            return value;
-
-        out << "Input must not be empty.\n";
-        out.flush();
+        value = value.mid(1, value.length() - 2).trimmed();
     }
+
+    return value;
+}
+
+QString readLine(const QString& prompt)
+{
+    out << prompt;
+    out.flush();
+
+    return normalizeInput(in.readLine());
 }
 
 void printBatchResult(const BatchResult& result)
@@ -89,19 +78,23 @@ void printBatchResult(const BatchResult& result)
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
-
     printHelp();
-
     while (true)
     {
-        QString command = readNonEmptyLine("Enter command (encrypt/decrypt/exit): ");
-        command = command.toLower();
+        QString command = readLine("Enter command (encrypt/decrypt/exit): ").toLower();
 
         if (command == "exit")
         {
             out << "Program finished.\n";
             out.flush();
             return 0;
+        }
+
+        if (command.isEmpty())
+        {
+            out << "Input must not be empty.\n\n";
+            out.flush();
+            continue;
         }
 
         if (command != "encrypt" && command != "decrypt")
@@ -111,8 +104,38 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        QString path = readNonEmptyLine("Enter folder path: ");
-        QString password = readNonEmptyLine("Enter password: ");
+        QString path = readLine("Enter folder path: ");
+
+        if (path.compare("exit", Qt::CaseInsensitive) == 0)
+        {
+            out << "Program finished.\n";
+            out.flush();
+            return 0;
+        }
+
+        if (path.isEmpty())
+        {
+            out << "Input must not be empty. Operation canceled.\n\n";
+            out.flush();
+            continue;
+        }
+
+        QString password = readLine("Enter password: ");
+
+        if (password.compare("exit", Qt::CaseInsensitive) == 0)
+        {
+            out << "Program finished.\n";
+            out.flush();
+            return 0;
+        }
+
+        if (password.isEmpty())
+        {
+            out << "Input must not be empty. Operation canceled.\n\n";
+            out.flush();
+            continue;
+        }
+
         CryptoManager& manager = CryptoManager::instance();
         BatchResult result;
 
@@ -122,7 +145,6 @@ int main(int argc, char *argv[])
             result = manager.decryptFolder(path, password);
 
         printBatchResult(result);
-        out << "\n";
         out.flush();
     }
 
