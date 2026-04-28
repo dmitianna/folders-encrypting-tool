@@ -85,21 +85,12 @@ bool isProtectedSystemPath(const QFileInfo& info)
 
 const QByteArray CryptoManager::ENCRYPTION_SIGNATURE("\xDE\xAD\xBE\xEF\xCA\xFE\xBA\xBE", 8);
 
-
-CryptoManager::CryptoManager()
-{
-}
-
-CryptoManager::~CryptoManager()
-{
-}
-
 CryptoManager& CryptoManager::instance()
 {
     static CryptoManager instance;
     return instance;
 }
-//-------------------------------------------
+
 bool CryptoManager::isPasswordValid(const QString& password, QString& errorMessage) const
 {
     if (password.trimmed().isEmpty())
@@ -155,7 +146,7 @@ bool CryptoManager::validateFileForProcessing(const QString& path, QString& erro
 
     return true;
 }
-//-------------------------------------------
+
 SecByteBlock CryptoManager::generateSalt(size_t size) const
 {
     AutoSeededRandomPool rng;
@@ -197,7 +188,6 @@ bool CryptoManager::hasEncryptionSignature(const QString& filePath) const
     return signature == ENCRYPTION_SIGNATURE;
 }
 
-//-------------------------------------------
 FileResult CryptoManager::encryptFile(const QString& path, const QString& password)
 {
     FileResult result;
@@ -315,7 +305,6 @@ FileResult CryptoManager::encryptFile(const QString& path, const QString& passwo
 FileResult CryptoManager::decryptFile(const QString& path, const QString& password)
 {
     FileResult result;
-    //-------------------------------------
     QString errorMessage;
     if (!validateFileForProcessing(path, errorMessage))
     {
@@ -329,7 +318,6 @@ FileResult CryptoManager::decryptFile(const QString& path, const QString& passwo
         result.errorMessage = "File is not encrypted";
         return result;
     }
-    //-----------------------------------------------
     try
     {
         QFile inputFile(path);

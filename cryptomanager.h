@@ -48,8 +48,8 @@ private:
         QStringList ignoredMessages;
     };
 
-    CryptoManager();
-    ~CryptoManager();
+    CryptoManager()= default;
+    ~CryptoManager() = default;
 
     CryptoManager(const CryptoManager&) = delete;
     CryptoManager& operator=(const CryptoManager&) = delete;
