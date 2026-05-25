@@ -64,6 +64,7 @@ private:
     bool validateFileForProcessing(const QString& path, QString& errorMessage) const;
     bool hasEncryptionSignature(const QString& filePath) const;
     bool isApplicationDirectory(const QString& path) const;
+    bool containsProjectMarkers(const QString& path) const;
     CryptoPP::SecByteBlock generateSalt(size_t size = SALT_SIZE) const;
     CryptoPP::SecByteBlock generateIV(size_t size = IV_SIZE) const;
     CryptoPP::SecByteBlock deriveKey(const QString& password,const CryptoPP::SecByteBlock& salt,size_t keySize = CryptoPP::AES::MAX_KEYLENGTH) const;

@@ -160,6 +160,39 @@ bool CryptoManager::isApplicationDirectory(const QString& path) const
     return appPath == targetPath || appPath.startsWith(targetPath + QDir::separator());
 }
 
+bool CryptoManager::containsProjectMarkers(const QString& path) const
+{
+    QDir dir(QDir(path).canonicalPath());
+
+    while (dir.exists())
+    {
+        if (dir.exists(".git"))
+            return true;
+
+        if (!dir.entryList({"*.pro"}, QDir::Files).isEmpty())
+            return true;
+
+        if (!dir.entryList({"*.sln"}, QDir::Files).isEmpty())
+            return true;
+
+        if (!dir.entryList({"*.vcxproj"}, QDir::Files).isEmpty())
+            return true;
+
+        if (dir.exists("CMakeLists.txt"))
+            return true;
+
+        if (dir.exists(".idea"))
+            return true;
+
+        if (dir.exists(".vscode"))
+            return true;
+
+        if (!dir.cdUp())
+            break;
+    }
+
+    return false;
+}
 SecByteBlock CryptoManager::generateSalt(size_t size) const
 {
     AutoSeededRandomPool rng;
@@ -476,7 +509,13 @@ CryptoManager::ScanResult CryptoManager::scanFolder(const QString& path) const
 
     if (isApplicationDirectory(path))
     {
-        result.errorMessage ="Application directory cannot be processed";
+        result.errorMessage = "Application directory cannot be processed";
+        return result;
+    }
+
+    if (containsProjectMarkers(path))
+    {
+        result.errorMessage = "Project directories cannot be processed";
         return result;
     }
 
