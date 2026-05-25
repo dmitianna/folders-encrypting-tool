@@ -5,6 +5,7 @@
 #include <QSaveFile>
 #include <QDir>
 #include <QDirIterator>
+#include <QCoreApplication>
 
 #include <files.h>
 #include <filters.h>
@@ -147,6 +148,33 @@ bool CryptoManager::validateFileForProcessing(const QString& path, QString& erro
     return true;
 }
 
+bool CryptoManager::isApplicationDirectory(const QString& path) const
+{
+    const QString appPath =
+        QDir(QCoreApplication::applicationDirPath()).canonicalPath();
+
+    const QString targetPath =
+        QDir(path).canonicalPath();
+    if (appPath.isEmpty() || targetPath.isEmpty())
+        return false;
+    return appPath == targetPath || appPath.startsWith(targetPath + QDir::separator());
+}
+
+bool CryptoManager::containsEncryptionToolProject(const QString& path) const
+{
+    QDir dir(QDir(path).canonicalPath());
+
+    while (dir.exists())
+    {
+        if (dir.exists("folders-encrypting-tool.pro"))
+            return true;
+
+        if (!dir.cdUp())
+            break;
+    }
+
+    return false;
+}
 SecByteBlock CryptoManager::generateSalt(size_t size) const
 {
     AutoSeededRandomPool rng;
@@ -445,31 +473,42 @@ CryptoManager::ScanResult CryptoManager::scanFolder(const QString& path) const
     QFileInfo dirInfo(path);
     if (!dirInfo.exists())
     {
-        result.errorMessage = "Folder does not exist: " + path;
+        result.errorMessage = "Folder does not exist";
         return result;
     }
 
     if (!dirInfo.isDir())
     {
-        result.errorMessage = "Path is not a folder: " + path;
+        result.errorMessage = "Path is not a folder";
         return result;
     }
 
     if (!dirInfo.isReadable())
     {
-        result.errorMessage = "Folder is not readable: " + path;
+        result.errorMessage = "Folder is not readable";
         return result;
     }
 
+    if (containsEncryptionToolProject(path))
+    {
+        result.errorMessage = "Encryption tool project directories cannot be processed";
+        return result;
+    }
+
+    if (isApplicationDirectory(path))
+    {
+        result.errorMessage = "Application directory cannot be processed";
+        return result;
+    }
     if (dirInfo.isHidden())
     {
-        result.errorMessage = "Hidden folders are not allowed: " + path;
+        result.errorMessage = "Hidden folders are not allowed";
         return result;
     }
 
     if (isProtectedSystemPath(dirInfo))
     {
-        result.errorMessage = "System folders are not allowed: " + path;
+        result.errorMessage = "System folders are not allowed";
         return result;
     }
 
@@ -484,7 +523,7 @@ CryptoManager::ScanResult CryptoManager::scanFolder(const QString& path) const
         if (entry.isSymLink())
         {
             result.ignoredFiles++;
-            result.ignoredMessages.append(entry.absoluteFilePath() + " : symbolic link");
+            result.ignoredMessages.insert(entry.absoluteFilePath(),"symbolic link");
             continue;
         }
 
@@ -492,14 +531,14 @@ CryptoManager::ScanResult CryptoManager::scanFolder(const QString& path) const
         if (entry.isHidden())
         {
             result.ignoredFiles++;
-            result.ignoredMessages.append(entry.absoluteFilePath() + " : hidden file");
+            result.ignoredMessages.insert(entry.absoluteFilePath(),"hidden file");
             continue;
         }
 
         if (isProtectedSystemPath(entry))
         {
             result.ignoredFiles++;
-            result.ignoredMessages.append(entry.absoluteFilePath() + " : system file");
+            result.ignoredMessages.insert(entry.absoluteFilePath(),"system file");
             continue;
         }
         result.files.append(entry.absoluteFilePath());
@@ -517,7 +556,7 @@ BatchResult CryptoManager::processFolder(const QString& folderPath,const QString
 
     if (!scanResult.success) {
         batchResult.success = false;
-        batchResult.errors.append(scanResult.errorMessage);
+        batchResult.errors.insert(folderPath,scanResult.errorMessage);
         return batchResult;
     }
 
@@ -526,7 +565,7 @@ BatchResult CryptoManager::processFolder(const QString& folderPath,const QString
     if (!isPasswordValid(password, passwordError))
     {
         batchResult.success = false;
-        batchResult.errors.append(passwordError);
+        batchResult.errors.insert(folderPath,passwordError);
         return batchResult;
     }
 
@@ -558,22 +597,12 @@ BatchResult CryptoManager::processFolder(const QString& folderPath,const QString
         else if (fileResult.skipped)
         {
             batchResult.skippedFiles++;
-
-            QString message = filePath;
-            if (!fileResult.errorMessage.isEmpty())
-                message += " : " + fileResult.errorMessage;
-
-            batchResult.skippedMessages.append(message);
+            batchResult.skippedMessages.insert(filePath,fileResult.errorMessage);
         }
         else
         {
             batchResult.failedFiles++;
-
-            QString message = filePath;
-            if (!fileResult.errorMessage.isEmpty())
-                message += " : " + fileResult.errorMessage;
-
-            batchResult.errors.append(message);
+            batchResult.errors.insert(filePath,fileResult.errorMessage);
         }
     }
 
