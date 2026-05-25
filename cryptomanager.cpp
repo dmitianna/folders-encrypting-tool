@@ -160,31 +160,13 @@ bool CryptoManager::isApplicationDirectory(const QString& path) const
     return appPath == targetPath || appPath.startsWith(targetPath + QDir::separator());
 }
 
-bool CryptoManager::containsProjectMarkers(const QString& path) const
+bool CryptoManager::containsEncryptionToolProject(const QString& path) const
 {
     QDir dir(QDir(path).canonicalPath());
 
     while (dir.exists())
     {
-        if (dir.exists(".git"))
-            return true;
-
-        if (!dir.entryList({"*.pro"}, QDir::Files).isEmpty())
-            return true;
-
-        if (!dir.entryList({"*.sln"}, QDir::Files).isEmpty())
-            return true;
-
-        if (!dir.entryList({"*.vcxproj"}, QDir::Files).isEmpty())
-            return true;
-
-        if (dir.exists("CMakeLists.txt"))
-            return true;
-
-        if (dir.exists(".idea"))
-            return true;
-
-        if (dir.exists(".vscode"))
+        if (dir.exists("folders-encrypting-tool.pro"))
             return true;
 
         if (!dir.cdUp())
@@ -507,18 +489,17 @@ CryptoManager::ScanResult CryptoManager::scanFolder(const QString& path) const
         return result;
     }
 
+    if (containsEncryptionToolProject(path))
+    {
+        result.errorMessage = "Encryption tool project directories cannot be processed";
+        return result;
+    }
+
     if (isApplicationDirectory(path))
     {
         result.errorMessage = "Application directory cannot be processed";
         return result;
     }
-
-    if (containsProjectMarkers(path))
-    {
-        result.errorMessage = "Project directories cannot be processed";
-        return result;
-    }
-
     if (dirInfo.isHidden())
     {
         result.errorMessage = "Hidden folders are not allowed";
