@@ -7,7 +7,7 @@
 #include <QByteArray>
 #include <QList>
 #include <QStringList>
-
+#include <QMap>
 
 struct BatchResult
 {
@@ -18,9 +18,10 @@ struct BatchResult
     int ignoredFiles = 0;
     int failedFiles = 0;
     qint64 totalBytesProcessed = 0;
-    QStringList errors;
-    QStringList skippedMessages;
-    QStringList ignoredMessages;
+    QMap<QString, QString> errors;
+    QMap<QString, QString> skippedMessages;
+    QMap<QString, QString> ignoredMessages;
+
 };
 
 class CryptoManager
@@ -45,7 +46,7 @@ private:
         QString errorMessage;
         QStringList files;
         int ignoredFiles = 0;
-        QStringList ignoredMessages;
+        QMap<QString, QString> ignoredMessages;
     };
 
 
@@ -62,7 +63,7 @@ private:
     bool isPasswordValid(const QString& password, QString& errorMessage) const;
     bool validateFileForProcessing(const QString& path, QString& errorMessage) const;
     bool hasEncryptionSignature(const QString& filePath) const;
-
+    bool isApplicationDirectory(const QString& path) const;
     CryptoPP::SecByteBlock generateSalt(size_t size = SALT_SIZE) const;
     CryptoPP::SecByteBlock generateIV(size_t size = IV_SIZE) const;
     CryptoPP::SecByteBlock deriveKey(const QString& password,const CryptoPP::SecByteBlock& salt,size_t keySize = CryptoPP::AES::MAX_KEYLENGTH) const;

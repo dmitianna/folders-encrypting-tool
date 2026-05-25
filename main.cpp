@@ -55,22 +55,40 @@ void printBatchResult(const BatchResult& result)
     if (!result.errors.isEmpty())
     {
         out << "Errors:\n";
-        for (const QString& msg : result.errors)
-            out << "  - " << msg << "\n";
+        for (auto it = result.errors.constBegin();it != result.errors.constEnd();++it)
+        {
+            out << "  - "
+                << it.key()
+                << " : "
+                << it.value()
+                << "\n";
+        }
     }
 
     if (!result.skippedMessages.isEmpty())
     {
         out << "Skipped:\n";
-        for (const QString& msg : result.skippedMessages)
-            out << "  - " << msg << "\n";
+        for (auto it = result.skippedMessages.constBegin();it != result.skippedMessages.constEnd();++it)
+        {
+            out << "  - "
+                << it.key()
+                << " : "
+                << it.value()
+                << "\n";
+        }
     }
 
     if (!result.ignoredMessages.isEmpty())
     {
         out << "Ignored:\n";
-        for (const QString& msg : result.ignoredMessages)
-            out << "  - " << msg << "\n";
+        for (auto it = result.ignoredMessages.constBegin();it != result.ignoredMessages.constEnd();++it)
+        {
+            out << "  - "
+                << it.key()
+                << " : "
+                << it.value()
+                << "\n";
+        }
     }
 
     out << "\n";
