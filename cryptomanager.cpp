@@ -160,21 +160,6 @@ bool CryptoManager::isApplicationDirectory(const QString& path) const
     return appPath == targetPath || appPath.startsWith(targetPath + QDir::separator());
 }
 
-bool CryptoManager::containsEncryptionToolProject(const QString& path) const
-{
-    QDir dir(QDir(path).canonicalPath());
-
-    while (dir.exists())
-    {
-        if (dir.exists("folders-encrypting-tool.pro"))
-            return true;
-
-        if (!dir.cdUp())
-            break;
-    }
-
-    return false;
-}
 SecByteBlock CryptoManager::generateSalt(size_t size) const
 {
     AutoSeededRandomPool rng;
@@ -486,12 +471,6 @@ CryptoManager::ScanResult CryptoManager::scanFolder(const QString& path) const
     if (!dirInfo.isReadable())
     {
         result.errorMessage = "Folder is not readable";
-        return result;
-    }
-
-    if (containsEncryptionToolProject(path))
-    {
-        result.errorMessage = "Encryption tool project directories cannot be processed";
         return result;
     }
 
